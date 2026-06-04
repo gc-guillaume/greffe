@@ -145,7 +145,9 @@ function record_value_from_input(array $field, array $post, array $files, array 
             $sub = is_array($opts['subfields'] ?? null) ? $opts['subfields'] : [];
             $raw = $post[$key] ?? [];
             if (!is_array($raw)) return [];
-            ksort($raw, SORT_NUMERIC);
+            // PAS de ksort : préserve l'ordre d'insertion (= ordre du body POST =
+            // ordre DOM après drag SortableJS). Sinon les indices originaux du
+            // template renverraient les lignes à leur position initiale.
             $out = [];
             foreach ($raw as $row) {
                 if (!is_array($row)) continue;

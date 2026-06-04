@@ -584,7 +584,9 @@ function build_field_options(string $type, array $post): array
 function subfields_from_array(array $rows): array
 {
     $allowed = ['text', 'longtext', 'number', 'boolean', 'date', 'select'];
-    ksort($rows, SORT_NUMERIC);
+    // PAS de ksort : on respecte l'ordre d'insertion (= ordre du body POST = ordre DOM
+    // après drag SortableJS). Les indices [0], [1], [1000]… peuvent être désordonnés
+    // après reorder client-side, mais foreach itère en ordre d'insertion = visuel.
     $sub = [];
     foreach ($rows as $row) {
         if (!is_array($row)) continue;
