@@ -1,6 +1,0 @@
-# Greffe — règles racine
-# /invitation.pdf sert toujours la dernière version active.
-<IfModule mod_rewrite.c>
-    RewriteEngine On
-    RewriteRule ^invitation\.pdf$ invitation.php [L]
-</IfModule>

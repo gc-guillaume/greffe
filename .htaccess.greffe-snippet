@@ -1,0 +1,21 @@
+# Greffe — snippet à FUSIONNER dans ton .htaccess racine.
+#
+# Greffe ne pose pas de .htaccess à la racine par défaut, parce que ton site
+# en a probablement déjà un (front controller, etc.). Recopie la ou les lignes
+# dont tu as besoin dans TON .htaccess, en respectant l'ORDRE (les règles
+# Apache sont évaluées top-down — placer ces rewrites AVANT ton catch-all).
+#
+# Tu n'es pas obligé d'utiliser /invitation.pdf : tu peux servir directement
+# /invitation.php — c'est purement une URL "propre" pour les invitations imprimées.
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Alias /invitation.pdf → handler PHP qui stream le PDF actif.
+    RewriteRule ^invitation\.pdf$ invitation.php [L]
+
+    # (Optionnel) ceinture-bretelles si jamais admin/.htaccess ne s'applique pas
+    # (config Apache verrouillée, AllowOverride None, etc.) :
+    # RewriteRule ^admin/(data|lib|views)/ - [F,L]
+    # RewriteRule ^admin/uploads/.*\.(php|phtml|phar|pl|py|cgi|sh)$ - [F,L]
+</IfModule>
