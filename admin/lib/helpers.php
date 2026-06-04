@@ -45,6 +45,33 @@ function keyify(string $s): string
 }
 
 /**
+ * Renvoie l'URL publique du site (proto + host) telle qu'enregistrée à l'install / au login admin.
+ * NE JAMAIS la calculer depuis $_SERVER['HTTP_HOST'] dans des contextes de sécurité (reset link).
+ */
+function greffe_public_url(): string
+{
+    if (function_exists('migrations_get')) {
+        $u = (string) migrations_get('public_url', '');
+        if ($u !== '') return rtrim($u, '/');
+    }
+    return '';
+}
+
+/**
+ * Enregistre l'URL publique courante (proto + host) dans _meta.
+ * Appelé depuis des contextes de CONFIANCE : install.php (premier admin) et login admin réussi.
+ * Ailleurs (notamment forgot password, public), Host est attaquant-contrôlable → on ne stocke jamais.
+ */
+function greffe_public_url_capture(): void
+{
+    if (!function_exists('migrations_set')) return;
+    $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host  = $_SERVER['HTTP_HOST'] ?? '';
+    if ($host === '') return;
+    migrations_set('public_url', $proto . '://' . $host);
+}
+
+/**
  * Démarre la session admin (cookie durci).
  */
 function session_boot(): void
@@ -139,8 +166,13 @@ function upload_file(array $file, ?array $allowedMime = null): string
         throw new RuntimeException('Type non autorisé : ' . $mime);
     }
 
-    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-    $ext = preg_replace('/[^a-z0-9]/', '', $ext) ?: 'bin';
+    // Extension dérivée du MIME validé — JAMAIS du nom utilisateur.
+    // Sinon un polyglotte type GIF89a;<?php …  uploadé en `shell.php` deviendrait exécutable
+    // sur les serveurs qui ignorent .htaccess (NGINX, IIS).
+    $ext = GREFFE_UPLOAD_MIME_EXT[$mime] ?? null;
+    if ($ext === null) {
+        throw new RuntimeException('Extension non mappée pour le MIME ' . $mime);
+    }
 
     $sub = date('Y/m');
     $dir = GREFFE_UPLOAD_DIR . '/' . $sub;

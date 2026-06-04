@@ -44,7 +44,11 @@ if ($page === 'login') {
 }
 
 if ($page === 'logout') {
-    auth_logout();
+    // Exige POST + CSRF pour éviter les déconnexions forcées via <img src=…?p=logout>.
+    if ($method === 'POST') {
+        csrf_check();
+        auth_logout();
+    }
     redirect('index.php?p=login');
 }
 
@@ -57,16 +61,20 @@ if ($page === 'forgot') {
         $email = trim((string) ($_POST['email'] ?? ''));
         $u = $email !== '' ? user_by_email($email) : null;
         if ($u) {
-            $token = reset_token_create((int) $u['id']);
-            // URL absolue : on prend l'URL relative + hôte courant.
-            $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-            $host  = $_SERVER['HTTP_HOST'] ?? 'localhost';
-            $link  = $proto . '://' . $host . GREFFE_BASE_URL . '/index.php?p=reset&token=' . $token;
-            $body  = "Bonjour " . $u['username'] . ",\n\n"
-                   . "Pour réinitialiser ton mot de passe sur " . $host . ", clique sur le lien :\n\n"
-                   . $link . "\n\n"
-                   . "Le lien expire dans 1 heure. Si tu n'es pas à l'origine de la demande, ignore ce mail.\n";
-            greffe_mail($email, 'Réinitialisation de mot de passe', $body);
+            // URL publique stockée à l'install / login admin — JAMAIS dérivée de HTTP_HOST ici
+            // (sinon header injection → empoisonnement du lien de reset → takeover de compte).
+            $publicUrl = greffe_public_url();
+            if ($publicUrl !== '') {
+                $token = reset_token_create((int) $u['id']);
+                $link  = $publicUrl . GREFFE_BASE_URL . '/index.php?p=reset&token=' . $token;
+                $body  = "Bonjour " . $u['username'] . ",\n\n"
+                       . "Pour réinitialiser ton mot de passe, clique sur le lien :\n\n"
+                       . $link . "\n\n"
+                       . "Le lien expire dans 1 heure. Si tu n'es pas à l'origine de la demande, ignore ce mail.\n";
+                greffe_mail($email, 'Réinitialisation de mot de passe', $body);
+            }
+            // Si public_url pas encore stockée : on ne fait rien (silencieusement).
+            // Un admin doit se logger une fois pour amorcer.
         }
         // Toujours afficher "envoyé" pour éviter l'énumération d'emails.
         $sent = true;

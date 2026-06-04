@@ -41,8 +41,29 @@ define('GREFFE_UPLOAD_URL', GREFFE_BASE_URL . '/uploads');
 // --- Limites uploads ---
 define('GREFFE_UPLOAD_MAX', 10 * 1024 * 1024); // 10 Mo
 // MIME images : utilisé par les champs media + gallery.
+// SVG délibérément exclu (vecteur XSS stocké : <script> inline exécuté en origine
+// du site quand l'image est ouverte). À réintégrer uniquement avec un sanitizer.
 define('GREFFE_UPLOAD_IMAGE_MIME', [
-    'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif', 'image/svg+xml',
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif',
+]);
+
+// Map MIME → extension du fichier sauvegardé.
+// L'extension SAUVÉE est dérivée du MIME validé (finfo), JAMAIS du nom utilisateur,
+// pour empêcher l'attaquant d'uploader un polyglotte (ex: GIF89a;<?php …) en .php.
+define('GREFFE_UPLOAD_MIME_EXT', [
+    'image/jpeg' => 'jpg',
+    'image/png'  => 'png',
+    'image/gif'  => 'gif',
+    'image/webp' => 'webp',
+    'image/avif' => 'avif',
+    'application/pdf' => 'pdf',
+    'application/msword' => 'doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+    'application/vnd.ms-excel' => 'xls',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+    'application/zip' => 'zip',
+    'text/plain' => 'txt',
+    'text/csv'   => 'csv',
 ]);
 // MIME fichiers : utilisé par le champ file (PDF + docs courants).
 define('GREFFE_UPLOAD_FILE_MIME', [

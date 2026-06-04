@@ -25,7 +25,10 @@ if ($flash):
     <div class="spacer"></div>
     <div class="user">
         <span class="user-name"><?= e($user['name']) ?></span>
-        <a href="<?= e(url('index.php?p=logout')) ?>" data-no-hijax title="Déconnexion"><?= icon('log-out') ?></a>
+        <form method="post" action="<?= e(url('index.php?p=logout')) ?>" data-no-hijax class="topbar-logout">
+            <?= csrf_field() ?>
+            <button type="submit" class="icon-btn" title="Déconnexion"><?= icon('log-out') ?></button>
+        </form>
     </div>
 </header>
 

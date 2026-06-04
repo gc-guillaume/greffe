@@ -20,6 +20,11 @@ function auth_attempt(string $username, string $password): bool
     $_SESSION['uid']  = (int) $u['id'];
     $_SESSION['name'] = $u['username'];
     $_SESSION['role'] = $u['role'];
+    // Capture l'URL publique seulement sur login admin réussi (contexte de confiance).
+    // Évite l'empoisonnement via HTTP_HOST par un visiteur anonyme sur /forgot.
+    if ((string) $u['role'] === 'admin') {
+        greffe_public_url_capture();
+    }
     return true;
 }
 

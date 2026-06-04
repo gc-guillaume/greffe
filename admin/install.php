@@ -29,6 +29,8 @@ if (!$alreadyInstalled && $_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new RuntimeException('Les mots de passe ne correspondent pas.');
         }
         user_create($username, $email, $password, 'admin');
+        // Capture l'URL publique au moment de l'install (admin connecté via le bon domaine).
+        greffe_public_url_capture();
         $ok = true;
         $alreadyInstalled = true;
     } catch (Throwable $e) {

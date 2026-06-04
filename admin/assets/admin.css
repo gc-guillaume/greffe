@@ -131,6 +131,8 @@ small.muted { font-weight: normal; }
     background: transparent;
 }
 .topbar .user a:hover { background: #f1f5f9; color: var(--fg); text-decoration: none; }
+.topbar-logout { margin: 0; padding: 0; display: inline-flex; }
+.topbar-logout .icon-btn { width: 32px; height: 32px; }
 
 .container {
     max-width: 1240px;
