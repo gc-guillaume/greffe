@@ -89,10 +89,16 @@ function migrations_list(): array
 {
     return [
 
-        // Exemple — placeholder à supprimer quand la première vraie migration arrive.
-        // 1 => function (PDO $pdo): void {
-        //     $pdo->exec("ALTER TABLE users ADD COLUMN avatar TEXT");
-        // },
+        // 1 — Cleanup du cacert.pem legacy.
+        // Avant le commit d51e7d4, greffe_cacert_path() faisait un bootstrap-download
+        // vers admin/data/cacert.pem (vulnérable au MITM). Désormais le fichier est
+        // vendoré dans admin/assets/vendor/cacert.pem et l'ancien est orphelin.
+        1 => function (PDO $pdo): void {
+            $legacy = GREFFE_DATA_DIR . '/cacert.pem';
+            if (is_file($legacy)) {
+                @unlink($legacy);
+            }
+        },
 
     ];
 }
