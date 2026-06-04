@@ -313,6 +313,32 @@
         input.click();
     }
 
+    /* ========== Pending reorders — guard pour éviter les races avec form submit ========== */
+    var pendingReorders = [];
+    function trackReorder(promise) {
+        pendingReorders.push(promise);
+        promise.then(function () { /* noop */ }, function () { /* noop */ }).then(function () {
+            var i = pendingReorders.indexOf(promise);
+            if (i >= 0) pendingReorders.splice(i, 1);
+        });
+    }
+    // Si l'utilisateur drag + clique IMMÉDIATEMENT "Enregistrer" sur un form data-no-hijax,
+    // on intercepte le submit pour attendre que les reorders en vol soient ack côté serveur.
+    document.addEventListener('submit', function (e) {
+        if (e.defaultPrevented) return;
+        var f = e.target;
+        if (!(f instanceof HTMLFormElement)) return;
+        if (!f.hasAttribute('data-no-hijax')) return; // les form hijax sont gérés ailleurs
+        if (pendingReorders.length === 0) return;
+        if (f.dataset._awaited === '1') { delete f.dataset._awaited; return; } // déjà attendu
+        e.preventDefault();
+        var submitter = e.submitter || null;
+        Promise.all(pendingReorders.slice()).then(function () { /* noop */ }, function () { /* noop */ }).then(function () {
+            f.dataset._awaited = '1';
+            try { f.requestSubmit(submitter); } catch (e2) { f.submit(); }
+        });
+    }, true); // capture phase, run avant les autres handlers
+
     /* ========== Toasts — wrapper sur Notyf ========== */
     var _notyf = null;
     function notyfInstance() {
@@ -498,10 +524,15 @@
                     fd.append('action', 'reorder_fields');
                     fd.append('_csrf', csrfToken());
                     ids.forEach(function (id) { fd.append('order[]', id); });
-                    fetch(BASE + '/index.php?p=collection_edit&id=' + encodeURIComponent(colId), {
+                    var p = fetch(BASE + '/index.php?p=collection_edit&id=' + encodeURIComponent(colId), {
                         method: 'POST', headers: { 'X-Greffe-AJAX': '1' },
                         body: fd, credentials: 'same-origin',
-                    }).then(function (resp) {
+                        // keepalive : si l'utilisateur clique sur "Enregistrer" après le drop,
+                        // garantit que la requête est envoyée même si la navigation démarre.
+                        keepalive: true,
+                    });
+                    trackReorder(p);
+                    p.then(function (resp) {
                         if (resp.ok) Greffe.toast('Ordre enregistré', 'success');
                         else Greffe.toast('Échec ordre (' + resp.status + ')', 'error');
                     }).catch(function () { Greffe.toast('Erreur réseau', 'error'); });
@@ -513,10 +544,13 @@
         var fd = new FormData();
         fd.append('_csrf', csrfToken());
         ids.forEach(function (id) { fd.append('order[]', id); });
-        fetch(url, {
+        var p = fetch(url, {
             method: 'POST', headers: { 'X-Greffe-AJAX': '1' },
             body: fd, credentials: 'same-origin',
-        }).then(function (resp) {
+            keepalive: true,
+        });
+        trackReorder(p);
+        p.then(function (resp) {
             if (resp.ok) Greffe.toast('Ordre enregistré', 'success');
             else Greffe.toast('Échec ordre (' + resp.status + ')', 'error');
         }).catch(function () { Greffe.toast('Erreur réseau', 'error'); });
