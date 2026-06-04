@@ -106,8 +106,8 @@ function reset_token_create(int $userId): string
 {
     $token = bin2hex(random_bytes(16));
     // Timestamp UNIX entier : pas de TZ, pas de datetime() côté SQLite, pas de gmdate vs date.
-    // Validité 48h pour laisser le temps au mail d'arriver et à l'utilisateur de cliquer.
-    $expires = (string) (time() + 48 * 3600);
+    // Validité 5h pour laisser le temps au mail d'arriver et à l'utilisateur de cliquer.
+    $expires = (string) (time() + 5 * 3600);
     $stmt = db()->prepare('UPDATE users SET reset_token = :t, reset_expires = :e WHERE id = :id');
     $stmt->execute([':t' => $token, ':e' => $expires, ':id' => $userId]);
     return $token;

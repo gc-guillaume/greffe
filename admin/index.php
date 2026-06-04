@@ -78,7 +78,7 @@ if ($page === 'forgot') {
                 $body  = "Bonjour " . $u['username'] . ",\n\n"
                        . "Pour réinitialiser ton mot de passe, clique sur le lien :\n\n"
                        . $link . "\n\n"
-                       . "Le lien expire dans 1 heure. Si tu n'es pas à l'origine de la demande, ignore ce mail.\n";
+                       . "Le lien expire dans 5 heures. Si tu n'es pas à l'origine de la demande, ignore ce mail.\n";
                 greffe_mail($email, 'Réinitialisation de mot de passe', $body);
             } else {
                 // Diagnostic log : aide à comprendre pourquoi aucun mail n'arrive.
