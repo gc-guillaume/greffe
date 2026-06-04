@@ -208,36 +208,44 @@ Le seed refuse de tourner si une des 7 collections existe déjà (état partiel 
 Convention : tout champ `number` nommé **exactement** `version`, qu'il soit à la racine d'un record ou à l'intérieur d'un `group`, fait apparaître un **second bouton de soumission** « Enregistrer + réafficher (version +1) ».
 Le serveur enregistre normalement puis incrémente le compteur ciblé. Pratique pour invalider les cookies "déjà vu" côté visiteur sans avoir à retaper le numéro à la main.
 
-## URL publique `/invitation.pdf`
+## Servir un fichier (PDF, image, etc.) sous une URL stable
 
-Le singleton `invitation` (champ `pdf` de type `file`) peut être servi sous une URL "propre" `/invitation.pdf`.
+Si tu veux un PDF / fichier accessible sous une URL "propre" (ex. `/invitation.pdf` qui sert toujours la version active du singleton `invitation`), c'est **du code à ajouter dans ton front**.
 
-Deux options selon ton setup :
+Exemple : ajoute un fichier `invitation.php` à la racine de TON site (ou dans ta route Symfony/Laravel/etc.) :
 
-**A. Tu veux l'URL `/invitation.pdf`** → ajoute UNE ligne à ton `.htaccess` racine :
-```apache
-RewriteRule ^invitation\.pdf$ invitation.php [L]
+```php
+<?php
+require __DIR__ . '/admin/lib/content.php';
+
+$inv  = options('invitation');
+$path = trim((string) ($inv['pdf'] ?? ''));
+
+if ($path === '') { http_response_code(404); exit; }
+// Whitelist anti-traversal
+$path = ltrim(str_replace('\\', '/', $path), '/');
+if (str_contains($path, '..')) { http_response_code(403); exit; }
+$abs = __DIR__ . '/admin/' . $path;
+if (!is_file($abs)) { http_response_code(404); exit; }
+
+header('Content-Type: application/pdf');
+header('Content-Length: ' . filesize($abs));
+header('Content-Disposition: inline; filename="invitation.pdf"');
+readfile($abs);
 ```
-(à placer AVANT ton catch-all si tu en as un). Le snippet de base est dans `.htaccess.greffe-snippet`.
 
-**B. Tu veux pas toucher ton `.htaccess`** → utilise directement `/invitation.php`. Le contenu est exactement le même (Content-Type PDF, stream inline). L'URL est juste moins jolie.
+Ensuite tu route `/invitation.pdf` → ce script via ton `.htaccess` ou ton routeur.
 
-> ℹ️ Greffe ne pose plus de `.htaccess` à la racine par défaut (pour ne pas écraser celui de ton site).
+Greffe ne pose **aucun fichier à la racine** — tu gardes le contrôle complet de ton front et de son routing.
 
-Le lien public reste donc inchangé même quand l'admin uploade un nouveau PDF. Les anciennes versions restent sur disque dans `admin/uploads/`, et l'historique 5 versions de Greffe permet de **restaurer** un ancien PDF en un clic depuis la sidebar du record.
-
-**Test local avec le serveur intégré PHP** : utilise le routeur fourni pour que `/invitation.pdf` fonctionne hors Apache (option A) :
-
-```bash
-php -S 127.0.0.1:7500 _router.php
-```
+Le lien public reste donc inchangé même quand l'admin uploade un nouveau PDF. Les anciennes versions restent sur disque dans `admin/uploads/`, et l'historique 10 versions de Greffe permet de **restaurer** un ancien fichier en un clic depuis la sidebar du record.
 
 ## Historique des records
 
 Chaque modification d'un record snapshot automatiquement l'état précédent dans la table `record_versions`.
-Les **5 versions les plus récentes** sont conservées par record (purge auto).
+Les **10 versions les plus récentes** sont conservées par record (purge auto).
 Le panneau « Historique » dans la sidebar du formulaire d'édition liste les versions disponibles, avec un bouton **Restaurer** par version.
-La restauration est elle-même versionnée : l'état courant est snapshoté avant d'être écrasé, donc on peut toujours revenir en arrière tant qu'on n'a pas dépassé 5 sauvegardes.
+La restauration est elle-même versionnée : l'état courant est snapshoté avant d'être écrasé, donc on peut toujours revenir en arrière tant qu'on n'a pas dépassé 10 sauvegardes.
 
 ## Sécurité
 

@@ -221,7 +221,7 @@ echo $post['auteur']['nom'];
 - `vacances` (singleton) — `periodes (repeater)` avec `libelle, texte`
 - `tarifs` (singleton) — 2 ou 3 `group` (un par tarif fixe), même sous-schéma
 - `modales` (singleton) — `toast (group)`, `fullpage (group)` avec `version` versionnée
-- `invitation` (singleton) — `pdf (file)` + route publique `/invitation.pdf`
+- `invitation` (singleton) — `pdf (file)` ; pour servir sous `/invitation.pdf`, code à écrire dans ton front (voir README)
 - `dispo_flag` (singleton) — `actif (boolean)`, `titre`, `note`
 
 ### E-commerce léger / catalogue
