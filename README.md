@@ -210,13 +210,23 @@ Le serveur enregistre normalement puis incrémente le compteur ciblé. Pratique 
 
 ## URL publique `/invitation.pdf`
 
-Le singleton `invitation` (champ `pdf` de type media) est servi sous une URL stable `/invitation.pdf` grâce à :
-- `invitation.php` à la racine (handler qui lit `options('invitation')` et stream le fichier)
-- `.htaccess` racine qui rewrite `/invitation.pdf` → `invitation.php`
+Le singleton `invitation` (champ `pdf` de type `file`) peut être servi sous une URL "propre" `/invitation.pdf`.
+
+Deux options selon ton setup :
+
+**A. Tu veux l'URL `/invitation.pdf`** → ajoute UNE ligne à ton `.htaccess` racine :
+```apache
+RewriteRule ^invitation\.pdf$ invitation.php [L]
+```
+(à placer AVANT ton catch-all si tu en as un). Le snippet de base est dans `.htaccess.greffe-snippet`.
+
+**B. Tu veux pas toucher ton `.htaccess`** → utilise directement `/invitation.php`. Le contenu est exactement le même (Content-Type PDF, stream inline). L'URL est juste moins jolie.
+
+> ℹ️ Greffe ne pose plus de `.htaccess` à la racine par défaut (pour ne pas écraser celui de ton site).
 
 Le lien public reste donc inchangé même quand l'admin uploade un nouveau PDF. Les anciennes versions restent sur disque dans `admin/uploads/`, et l'historique 5 versions de Greffe permet de **restaurer** un ancien PDF en un clic depuis la sidebar du record.
 
-**Test local avec le serveur intégré PHP** : utilise le routeur fourni pour que `/invitation.pdf` fonctionne hors Apache :
+**Test local avec le serveur intégré PHP** : utilise le routeur fourni pour que `/invitation.pdf` fonctionne hors Apache (option A) :
 
 ```bash
 php -S 127.0.0.1:7500 _router.php
