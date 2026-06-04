@@ -1,0 +1,15 @@
+# Greffe — protections admin
+Options -Indexes
+
+# Bloque l'accès direct au dossier lib/ et views/ via le web.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^lib/.*$    - [F,L]
+    RewriteRule ^views/.*$  - [F,L]
+    RewriteRule ^data/.*$   - [F,L]
+</IfModule>
+
+# Empêche le listing si mod_autoindex est actif.
+<IfModule mod_autoindex.c>
+    IndexIgnore *
+</IfModule>

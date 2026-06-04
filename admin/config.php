@@ -1,0 +1,64 @@
+<?php
+declare(strict_types=1);
+
+/**
+ * Configuration Greffe.
+ * Définit les chemins et auto-détecte la base URL pour fonctionner
+ * quel que soit l'emplacement de /admin (racine, sous-dossier, sous-domaine).
+ */
+
+// Empêche les doubles inclusions (content.php côté front peut aussi le charger).
+if (defined('GREFFE_BOOTED')) {
+    return;
+}
+define('GREFFE_BOOTED', true);
+
+// --- Chemins disque ---
+define('GREFFE_ADMIN_DIR', __DIR__);
+define('GREFFE_DATA_DIR',  __DIR__ . '/data');
+define('GREFFE_UPLOAD_DIR', __DIR__ . '/uploads');
+define('GREFFE_DB_PATH',   GREFFE_DATA_DIR . '/content.sqlite');
+
+// Crée les dossiers si absents (silencieusement).
+foreach ([GREFFE_DATA_DIR, GREFFE_UPLOAD_DIR] as $d) {
+    if (!is_dir($d)) {
+        @mkdir($d, 0775, true);
+    }
+}
+
+// --- Auto-détection de la base URL ---
+// Renvoie p.ex. "/admin" ou "/monsite/admin" ou "" si à la racine du host.
+$scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/admin/index.php'));
+if ($scriptDir === '/' || $scriptDir === '.') {
+    $scriptDir = '';
+}
+define('GREFFE_BASE_URL', rtrim($scriptDir, '/'));
+
+// URL publique du dossier uploads (relative au host).
+// On remonte d'un cran depuis /admin pour pointer vers /admin/uploads quand même.
+define('GREFFE_UPLOAD_URL', GREFFE_BASE_URL . '/uploads');
+
+// --- Limites uploads ---
+define('GREFFE_UPLOAD_MAX', 10 * 1024 * 1024); // 10 Mo
+// MIME images : utilisé par les champs media + gallery.
+define('GREFFE_UPLOAD_IMAGE_MIME', [
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif', 'image/svg+xml',
+]);
+// MIME fichiers : utilisé par le champ file (PDF + docs courants).
+define('GREFFE_UPLOAD_FILE_MIME', [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/zip',
+    'text/plain',
+    'text/csv',
+]);
+// Union : utilisée comme défaut (rétrocompat) si on n'a pas précisé.
+define('GREFFE_UPLOAD_MIME', array_merge(GREFFE_UPLOAD_IMAGE_MIME, GREFFE_UPLOAD_FILE_MIME));
+
+// Fuseau par défaut.
+if (!ini_get('date.timezone')) {
+    date_default_timezone_set('UTC');
+}

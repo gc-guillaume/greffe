@@ -1,0 +1,29 @@
+# Greffe — fichiers à NE PAS commiter
+# Le contenu utilisateur reste local au serveur, jamais dans le repo.
+
+# Base de données (et son journal WAL + shm)
+admin/data/*.sqlite
+admin/data/*.sqlite-wal
+admin/data/*.sqlite-shm
+admin/data/*.log
+
+# Uploads (fichiers uploadés par les users)
+admin/uploads/**
+!admin/uploads/.htaccess
+
+# Configuration locale potentielle
+.env
+.env.local
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+.claude/
+
+# PHP build / temp
+*.cache
+.phpunit.result.cache
