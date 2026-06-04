@@ -1129,8 +1129,16 @@ button.block { display: flex; width: 100%; margin-top: .5rem; }
     min-height: 100vh;
     display: flex; align-items: center; justify-content: center;
     padding: 1rem;
+    background: var(--accent);
 }
-.auth-wrap .card, body.auth .card { width: 100%; max-width: 380px; }
+.auth-wrap .card, body.auth .card {
+    width: 100%;
+    max-width: 420px;
+    padding: 2.5rem 2.25rem;
+    border: 0;
+    border-radius: 24px;
+    corner-shape: squircle;
+}
 
 /* Add-field card */
 .add-field { background: #fcfcfd; }
