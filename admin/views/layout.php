@@ -17,14 +17,14 @@ if ($flash):
 <link rel="stylesheet" href="<?= e(GREFFE_BASE_URL) ?>/assets/admin.css">
 </head>
 <body class="<?= function_exists('auth_user') && auth_user() ? 'with-side' : 'is-auth' ?>">
-<?php $user = function_exists('auth_user') ? auth_user() : null; ?>
-<?php if ($user): ?>
+<?php $_authUser = function_exists('auth_user') ? auth_user() : null; ?>
+<?php if ($_authUser): ?>
 <header class="topbar">
     <button type="button" class="side-toggle" aria-label="Menu" data-side-toggle><?= icon('menu', 18) ?></button>
     <a class="brand" href="<?= e(url('index.php')) ?>">Greffe</a>
     <div class="spacer"></div>
     <div class="user">
-        <span class="user-name"><?= e($user['name']) ?></span>
+        <span class="user-name"><?= e($_authUser['name']) ?></span>
         <form method="post" action="<?= e(url('index.php?p=logout')) ?>" data-no-hijax class="topbar-logout">
             <?= csrf_field() ?>
             <button type="submit" class="icon-btn" title="Déconnexion"><?= icon('log-out') ?></button>
