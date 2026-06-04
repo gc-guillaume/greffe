@@ -15,15 +15,16 @@
 ?>
 <section class="dash-hello" aria-label="Bienvenue">
     <h1>
-        Salut,
+        <span class="dash-hello-greet">Salut,</span>
         <span class="dash-hello-name">
-            <?= e($hello) ?>
-            <svg class="dash-hello-squiggle" viewBox="0 0 220 14" preserveAspectRatio="none" aria-hidden="true">
-                <path d="M2 9 C 30 2, 60 14, 90 7 S 150 1, 180 9 S 210 12, 218 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            <strong><?= e($hello) ?></strong>
+            <svg class="dash-hello-squiggle" viewBox="0 0 220 10" preserveAspectRatio="none" aria-hidden="true">
+                <path d="M2 7 Q 110 1 218 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
             </svg>
         </span>
         !
     </h1>
+    <p class="dash-hello-sub">On commence par quoi, aujourd'hui ?</p>
 </section>
 
 <?php if (!$singletons && !$lists): ?>
