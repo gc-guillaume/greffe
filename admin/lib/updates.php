@@ -322,6 +322,13 @@ function backup_restore(string $name): void
         }
     }
     $zip->close();
+
+    // Idem que apply_update : si install déjà fait, on ne laisse pas install.php
+    // traîner même après un rollback.
+    require_once __DIR__ . '/schema.php';
+    if (!schema_needs_install()) {
+        @unlink(GREFFE_ADMIN_DIR . '/install.php');
+    }
 }
 
 /* ---------- Apply update ---------- */
@@ -366,6 +373,14 @@ function apply_update(string $sha): array
 
     migrations_set('code_sha', $sha);
     migrations_run();
+
+    // L'install est déjà fait (sinon on n'arriverait pas ici via l'admin).
+    // On supprime install.php au cas où il aurait été ré-extrait par le tarball,
+    // pour ne pas laisser un endpoint d'install qui traînerait après chaque update.
+    require_once __DIR__ . '/schema.php';
+    if (!schema_needs_install()) {
+        @unlink(GREFFE_ADMIN_DIR . '/install.php');
+    }
 
     return ['backup' => $backup, 'new_sha' => $sha];
 }
