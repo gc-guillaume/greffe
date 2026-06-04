@@ -105,10 +105,9 @@ function user_admin_count(): int
 function reset_token_create(int $userId): string
 {
     $token = bin2hex(random_bytes(16));
-    // gmdate (UTC) pour matcher SQLite datetime('now') qui est aussi UTC.
-    // Avec date() (timezone local), un décalage UTC+2 faisait apparaître le token
-    // comme expiré immédiatement à la lecture.
-    $expires = gmdate('Y-m-d H:i:s', time() + 3600);
+    // Timestamp UNIX entier : pas de TZ, pas de datetime() côté SQLite, pas de gmdate vs date.
+    // Validité 48h pour laisser le temps au mail d'arriver et à l'utilisateur de cliquer.
+    $expires = (string) (time() + 48 * 3600);
     $stmt = db()->prepare('UPDATE users SET reset_token = :t, reset_expires = :e WHERE id = :id');
     $stmt->execute([':t' => $token, ':e' => $expires, ':id' => $userId]);
     return $token;
@@ -116,11 +115,18 @@ function reset_token_create(int $userId): string
 
 function reset_token_verify(string $token): ?array
 {
+    $token = trim($token);
     if ($token === '') return null;
-    $stmt = db()->prepare("SELECT * FROM users WHERE reset_token = :t AND reset_expires > datetime('now')");
+    $stmt = db()->prepare('SELECT * FROM users WHERE reset_token = :t');
     $stmt->execute([':t' => $token]);
     $r = $stmt->fetch();
-    return $r ?: null;
+    if (!$r) return null;
+    // Comparaison en PHP, en timestamp UNIX. Rétro-compat : si reset_expires est encore
+    // au format 'YYYY-MM-DD HH:MM:SS' (anciens tokens), strtotime gère les deux.
+    $exp = (string) ($r['reset_expires'] ?? '');
+    $expTs = ctype_digit($exp) ? (int) $exp : (int) strtotime($exp . ' UTC');
+    if ($expTs <= 0 || $expTs <= time()) return null;
+    return $r;
 }
 
 function reset_token_clear(int $userId): void
