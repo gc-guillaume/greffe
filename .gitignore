@@ -30,3 +30,6 @@ Thumbs.db
 
 # seed.php est délibérément exclu — anonyme sans auth/CSRF
 admin/seed.php
+
+# Recovery one-shot — anonyme par construction, ne JAMAIS committer ni laisser en prod.
+admin/_pwreset.php
