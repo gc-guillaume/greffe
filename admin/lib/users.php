@@ -211,12 +211,21 @@ function greffe_mail(string $to, string $subject, string $body): bool
         'Content-Type: multipart/alternative; boundary="' . $boundary . '"',
     ]);
 
-    // Détecte les URLs http(s) dans le body et les enrobe en <a href>. Encode le reste.
-    $htmlBody = preg_replace_callback(
-        '#https?://[^\s<>"\']+#',
-        fn($m) => '<a href="' . htmlspecialchars($m[0], ENT_QUOTES) . '">' . htmlspecialchars($m[0], ENT_QUOTES) . '</a>',
-        nl2br(htmlspecialchars($body, ENT_QUOTES))
-    );
+    // Split body autour des URLs. Texte non-URL : htmlspecialchars + nl2br.
+    // URL : htmlspecialchars UNE SEULE FOIS (donne &amp; dans href, que le browser
+    // redécode en & au clic). Sans split, on encodait le body puis re-encodait l'URL
+    // dans le callback -> &amp;amp; -> browser décodait en &amp; -> $_GET['amp;token']
+    // au lieu de $_GET['token']. Cf log: ?p=reset&amp;token=… reason=empty.
+    $parts = preg_split('#(https?://[^\s<>"\']+)#', $body, -1, PREG_SPLIT_DELIM_CAPTURE);
+    $htmlBody = '';
+    foreach ($parts as $p) {
+        if ($p !== '' && preg_match('#^https?://#', $p)) {
+            $u = htmlspecialchars($p, ENT_QUOTES);
+            $htmlBody .= '<a href="' . $u . '">' . $u . '</a>';
+        } else {
+            $htmlBody .= nl2br(htmlspecialchars($p, ENT_QUOTES));
+        }
+    }
 
     $msg  = "--$boundary\r\n";
     $msg .= "Content-Type: text/plain; charset=UTF-8\r\n";
