@@ -290,12 +290,17 @@ try {
             if (!can_edit_schema()) { http_response_code(403); exit('Accès refusé.'); }
             if ($method === 'POST') {
                 csrf_check();
-                $id = collection_create(
-                    (string) ($_POST['label'] ?? ''),
-                    (string) ($_POST['slug']  ?? ''),
-                    !empty($_POST['is_singleton'])
-                );
-                redirect('index.php?p=collection_edit&id=' . $id);
+                try {
+                    $id = collection_create(
+                        (string) ($_POST['label'] ?? ''),
+                        (string) ($_POST['slug']  ?? ''),
+                        !empty($_POST['is_singleton'])
+                    );
+                    flash_set('success', 'Collection créée.');
+                    redirect('index.php?p=collection_edit&id=' . $id);
+                } catch (Throwable $e) {
+                    flash_set('error', $e->getMessage());
+                }
             }
             view('collection_edit', [
                 'collection' => null,
@@ -314,27 +319,35 @@ try {
                 csrf_check();
                 $action = (string) ($_POST['action'] ?? '');
 
-                if ($action === 'update_collection') {
-                    collection_update($id, (string) ($_POST['label'] ?? $col['label']), !empty($_POST['is_singleton']));
-                } elseif ($action === 'add_field') {
-                    $type = (string) ($_POST['type'] ?? 'text');
-                    $opts = build_field_options($type, $_POST);
-                    field_create($id, (string) ($_POST['key'] ?? ''), (string) ($_POST['label'] ?? ''), $type, $opts);
-                } elseif ($action === 'update_field') {
-                    $fid  = (int) ($_POST['field_id'] ?? 0);
-                    $type = (string) ($_POST['type'] ?? 'text');
-                    $opts = build_field_options($type, $_POST);
-                    field_update($fid, (string) ($_POST['label'] ?? ''), $type, $opts);
-                } elseif ($action === 'delete_field') {
-                    field_delete((int) ($_POST['field_id'] ?? 0));
-                } elseif ($action === 'reorder_fields') {
-                    $order = (array) ($_POST['order'] ?? []);
-                    foreach ($order as $i => $fid) {
-                        field_set_sort((int) $fid, (int) $i);
+                try {
+                    if ($action === 'update_collection') {
+                        collection_update($id, (string) ($_POST['label'] ?? $col['label']), !empty($_POST['is_singleton']));
+                        flash_set('success', 'Collection mise à jour.');
+                    } elseif ($action === 'add_field') {
+                        $type = (string) ($_POST['type'] ?? 'text');
+                        $opts = build_field_options($type, $_POST);
+                        field_create($id, (string) ($_POST['key'] ?? ''), (string) ($_POST['label'] ?? ''), $type, $opts);
+                        flash_set('success', 'Champ ajouté.');
+                    } elseif ($action === 'update_field') {
+                        $fid  = (int) ($_POST['field_id'] ?? 0);
+                        $type = (string) ($_POST['type'] ?? 'text');
+                        $opts = build_field_options($type, $_POST);
+                        field_update($fid, (string) ($_POST['label'] ?? ''), $type, $opts);
+                        flash_set('success', 'Champ enregistré.');
+                    } elseif ($action === 'delete_field') {
+                        field_delete((int) ($_POST['field_id'] ?? 0));
+                        flash_set('success', 'Champ supprimé.');
+                    } elseif ($action === 'reorder_fields') {
+                        $order = (array) ($_POST['order'] ?? []);
+                        foreach ($order as $i => $fid) {
+                            field_set_sort((int) $fid, (int) $i);
+                        }
+                        if (!empty($_SERVER['HTTP_X_GREFFE_AJAX'])) {
+                            header('Content-Type: text/plain'); echo 'OK'; exit;
+                        }
                     }
-                    if (!empty($_SERVER['HTTP_X_GREFFE_AJAX'])) {
-                        header('Content-Type: text/plain'); echo 'OK'; exit;
-                    }
+                } catch (Throwable $e) {
+                    flash_set('error', $e->getMessage());
                 }
                 redirect('index.php?p=collection_edit&id=' . $id);
             }
@@ -351,6 +364,7 @@ try {
             if ($method === 'POST') {
                 csrf_check();
                 collection_delete((int) ($_POST['id'] ?? 0));
+                flash_set('success', 'Collection supprimée.');
             }
             redirect('index.php?p=collections');
 
@@ -390,15 +404,20 @@ try {
 
             if ($method === 'POST') {
                 csrf_check();
-                $data = record_build_data($fields, $_POST, $_FILES);
-                $id = record_create(
-                    $slug,
-                    $data,
-                    (string) ($_POST['_slug']   ?? ''),
-                    (string) ($_POST['_status'] ?? 'draft'),
-                    (int)    ($_POST['_sort']   ?? 0)
-                );
-                redirect('index.php?p=record_edit&id=' . $id);
+                try {
+                    $data = record_build_data($fields, $_POST, $_FILES);
+                    $id = record_create(
+                        $slug,
+                        $data,
+                        (string) ($_POST['_slug']   ?? ''),
+                        (string) ($_POST['_status'] ?? 'draft'),
+                        (int)    ($_POST['_sort']   ?? 0)
+                    );
+                    flash_set('success', 'Élément créé.');
+                    redirect('index.php?p=record_edit&id=' . $id);
+                } catch (Throwable $e) {
+                    flash_set('error', $e->getMessage());
+                }
             }
 
             view('record_edit', [
@@ -421,19 +440,24 @@ try {
 
             if ($method === 'POST') {
                 csrf_check();
-                $current = json_decode_array($rec['data']);
-                $data = record_build_data($fields, $_POST, $_FILES, $current);
-                // Bouton "Enregistrer + version +1" : incrémente un compteur ciblé après lecture du form.
-                if (!empty($_POST['_bump'])) {
-                    apply_bump($data, (string) $_POST['_bump']);
+                try {
+                    $current = json_decode_array($rec['data']);
+                    $data = record_build_data($fields, $_POST, $_FILES, $current);
+                    // Bouton "Enregistrer + version +1" : incrémente un compteur ciblé après lecture du form.
+                    if (!empty($_POST['_bump'])) {
+                        apply_bump($data, (string) $_POST['_bump']);
+                    }
+                    record_update(
+                        $id,
+                        $data,
+                        (string) ($_POST['_slug']   ?? ($rec['slug'] ?? '')),
+                        (string) ($_POST['_status'] ?? $rec['status']),
+                        (int)    ($_POST['_sort']   ?? $rec['sort'])
+                    );
+                    flash_set('success', 'Enregistré.');
+                } catch (Throwable $e) {
+                    flash_set('error', $e->getMessage());
                 }
-                record_update(
-                    $id,
-                    $data,
-                    (string) ($_POST['_slug']   ?? ($rec['slug'] ?? '')),
-                    (string) ($_POST['_status'] ?? $rec['status']),
-                    (int)    ($_POST['_sort']   ?? $rec['sort'])
-                );
                 // Retour vers le dashboard (ou autre URL interne) si demandé.
                 $return = (string) ($_POST['_return'] ?? '');
                 if ($return !== '' && preg_match('#^index\.php(\?|#|$)#', $return)) {
@@ -472,8 +496,10 @@ try {
                 $vid = (int) ($_POST['version_id'] ?? 0);
                 $rid = record_restore($vid);
                 if ($rid) {
+                    flash_set('success', 'Version restaurée.');
                     redirect('index.php?p=record_edit&id=' . $rid);
                 }
+                flash_set('error', 'Version introuvable.');
             }
             redirect('index.php?p=collections');
 
@@ -484,11 +510,12 @@ try {
                 $rec = record_find($id);
                 if ($rec && can_delete_record($rec)) {
                     record_delete($id);
+                    flash_set('success', 'Élément supprimé.');
                     redirect('index.php?p=records&col=' . urlencode((string) $rec['collection']));
                 }
                 if ($rec && !can_delete_record($rec)) {
-                    http_response_code(403);
-                    exit('Suppression refusée.');
+                    flash_set('error', 'Suppression refusée.');
+                    redirect('index.php');
                 }
             }
             redirect('index.php?p=collections');
