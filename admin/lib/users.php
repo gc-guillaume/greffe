@@ -116,17 +116,38 @@ function reset_token_create(int $userId): string
 function reset_token_verify(string $token): ?array
 {
     $token = trim($token);
-    if ($token === '') return null;
+    if ($token === '') { reset_token_log_fail('empty', $token, null); return null; }
     $stmt = db()->prepare('SELECT * FROM users WHERE reset_token = :t');
     $stmt->execute([':t' => $token]);
     $r = $stmt->fetch();
-    if (!$r) return null;
+    if (!$r) { reset_token_log_fail('not_found', $token, null); return null; }
     // Comparaison en PHP, en timestamp UNIX. Rétro-compat : si reset_expires est encore
     // au format 'YYYY-MM-DD HH:MM:SS' (anciens tokens), strtotime gère les deux.
     $exp = (string) ($r['reset_expires'] ?? '');
     $expTs = ctype_digit($exp) ? (int) $exp : (int) strtotime($exp . ' UTC');
-    if ($expTs <= 0 || $expTs <= time()) return null;
+    if ($expTs <= 0 || $expTs <= time()) {
+        reset_token_log_fail('expired', $token, ['stored_expires' => $exp, 'parsed_ts' => $expTs, 'now' => time()]);
+        return null;
+    }
     return $r;
+}
+
+/**
+ * Diagnostic des échecs de verify : aide à comprendre pourquoi un lien échoue
+ * (token obsolète vs absent vs expiré). Token tronqué dans le log pour éviter le take-over.
+ */
+function reset_token_log_fail(string $reason, string $token, ?array $extra): void
+{
+    if (!defined('GREFFE_DATA_DIR')) return;
+    $short = $token === '' ? '(empty)' : substr($token, 0, 6) . '…' . substr($token, -4);
+    $line = sprintf(
+        "[%s] reset_verify FAIL reason=%s token=%s%s\n",
+        date('Y-m-d H:i:s'),
+        $reason,
+        $short,
+        $extra ? ' extra=' . json_encode($extra) : ''
+    );
+    @file_put_contents(GREFFE_DATA_DIR . '/mail.log', $line, FILE_APPEND);
 }
 
 function reset_token_clear(int $userId): void
