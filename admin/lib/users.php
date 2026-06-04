@@ -142,11 +142,42 @@ function reset_token_create(int $userId): string
 
 function reset_token_verify(string $token): ?array
 {
+    // -------- DEBUG TRACE --------
+    if (defined('GREFFE_DATA_DIR')) {
+        @file_put_contents(
+            GREFFE_DATA_DIR . '/reset-debug.log',
+            sprintf(
+                "[%s] verify ENTRY token_len=%d fp=%s\n",
+                date('Y-m-d H:i:s'),
+                strlen($token),
+                $token === '' ? '(empty)' : substr($token, 0, 6) . '…' . substr($token, -4)
+            ),
+            FILE_APPEND
+        );
+    }
+    // -----------------------------
     $token = trim($token);
     if ($token === '') { reset_token_log_fail('empty', $token, null); return null; }
     $stmt = db()->prepare('SELECT * FROM users WHERE reset_token = :t');
     $stmt->execute([':t' => $token]);
     $r = $stmt->fetch();
+
+    // -------- DEBUG TRACE --------
+    if (defined('GREFFE_DATA_DIR')) {
+        @file_put_contents(
+            GREFFE_DATA_DIR . '/reset-debug.log',
+            sprintf(
+                "[%s] verify SELECT result=%s row_id=%s row_expires=%s\n",
+                date('Y-m-d H:i:s'),
+                $r ? 'FOUND' : 'NOT_FOUND',
+                $r ? (int) ($r['id'] ?? 0) : '-',
+                $r ? (string) ($r['reset_expires'] ?? '') : '-'
+            ),
+            FILE_APPEND
+        );
+    }
+    // -----------------------------
+
     if (!$r) { reset_token_log_fail('not_found', $token, null); return null; }
     // Comparaison en PHP, en timestamp UNIX. Rétro-compat : si reset_expires est encore
     // au format 'YYYY-MM-DD HH:MM:SS' (anciens tokens), strtotime gère les deux.
