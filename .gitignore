@@ -1,11 +1,10 @@
 # Greffe — fichiers à NE PAS commiter
 # Le contenu utilisateur reste local au serveur, jamais dans le repo.
 
-# Base de données (et son journal WAL + shm)
-admin/data/*.sqlite
-admin/data/*.sqlite-wal
-admin/data/*.sqlite-shm
-admin/data/*.log
+# Tout le contenu local du serveur reste hors du repo,
+# sauf le .htaccess qui doit voyager avec le code (protection web).
+admin/data/**
+!admin/data/.htaccess
 
 # Uploads (fichiers uploadés par les users)
 admin/uploads/**
