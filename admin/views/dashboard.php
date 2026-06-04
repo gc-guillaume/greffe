@@ -8,13 +8,23 @@
  */
 ?>
 
-<div class="page-head">
-    <div>
-        <h1>Dashboard</h1>
-        <span class="muted small">Tout ce qu'il y a à éditer.</span>
-    </div>
-    <a class="btn ghost" href="<?= e(url('index.php?p=collections')) ?>"><?= icon('settings', 14) ?> Schéma</a>
-</div>
+<?php
+    $u = auth_user();
+    $hello = trim((string) ($u['name'] ?? ''));
+    if ($hello === '') $hello = 'toi';
+?>
+<section class="dash-hello" aria-label="Bienvenue">
+    <h1>
+        Salut,
+        <span class="dash-hello-name">
+            <?= e($hello) ?>
+            <svg class="dash-hello-squiggle" viewBox="0 0 220 14" preserveAspectRatio="none" aria-hidden="true">
+                <path d="M2 9 C 30 2, 60 14, 90 7 S 150 1, 180 9 S 210 12, 218 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+        </span>
+        !
+    </h1>
+</section>
 
 <?php if (!$singletons && !$lists): ?>
     <div class="empty-card">
