@@ -1125,11 +1125,11 @@ button.block { display: flex; width: 100%; margin-top: .5rem; }
 }
 
 /* Auth screen */
+body.is-auth { background: var(--accent); }
 .auth, .auth-wrap {
     min-height: 100vh;
     display: flex; align-items: center; justify-content: center;
     padding: 1rem;
-    background: var(--accent);
 }
 .auth-wrap .card, body.auth .card {
     width: 100%;

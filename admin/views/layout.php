@@ -16,7 +16,7 @@ if ($flash):
 <link rel="stylesheet" href="<?= e(GREFFE_BASE_URL) ?>/assets/vendor/notyf.min.css">
 <link rel="stylesheet" href="<?= e(GREFFE_BASE_URL) ?>/assets/admin.css">
 </head>
-<body<?= function_exists('auth_user') && auth_user() ? ' class="with-side"' : '' ?>>
+<body class="<?= function_exists('auth_user') && auth_user() ? 'with-side' : 'is-auth' ?>">
 <?php $user = function_exists('auth_user') ? auth_user() : null; ?>
 <?php if ($user): ?>
 <header class="topbar">
