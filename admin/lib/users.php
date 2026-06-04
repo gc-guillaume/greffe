@@ -157,6 +157,11 @@ function reset_token_verify(string $token): ?array
     }
     // -----------------------------
     $token = trim($token);
+    // Token = hex pur (bin2hex(random_bytes(16)) -> [0-9a-f]{32}).
+    // On strippe TOUT char non-hex pour absorber les saletés que les clients mail
+    // collent au bout (cf Gmail qui ajoute le 'e' de 'expire' à la zone clickable,
+    // outlook qui ajoute '>', des newlines, etc).
+    $token = preg_replace('/[^0-9a-f]/i', '', $token) ?? '';
     if ($token === '') { reset_token_log_fail('empty', $token, null); return null; }
     $stmt = db()->prepare('SELECT * FROM users WHERE reset_token = :t');
     $stmt->execute([':t' => $token]);
