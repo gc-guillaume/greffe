@@ -137,6 +137,61 @@ function gh_latest_commit(): ?array
 }
 
 /**
+ * Comparaison entre deux SHA (base vs head). Renvoie behind_by + liste des commits entre.
+ * Utilise l'endpoint compare de GitHub.
+ *
+ * @return ?array{behind_by:int, ahead_by:int, status:string, commits:array}
+ */
+function gh_compare(string $base, string $head): ?array
+{
+    if (!preg_match('/^[0-9a-f]{7,40}$/i', $base)) return null;
+    if (!preg_match('/^[0-9a-f]{7,40}$/i', $head)) return null;
+    try {
+        $r = gh_api('/compare/' . rawurlencode($base) . '...' . rawurlencode($head));
+    } catch (Throwable $e) {
+        return null;
+    }
+    if (!is_array($r)) return null;
+
+    $commits = [];
+    foreach ($r['commits'] ?? [] as $c) {
+        $msg = (string) ($c['commit']['message'] ?? '');
+        $firstLine = (string) strtok($msg, "\n");
+        $commits[] = [
+            'sha'     => substr((string) ($c['sha'] ?? ''), 0, 7),
+            'message' => $firstLine,
+            'date'    => (string) ($c['commit']['author']['date'] ?? ''),
+            'author'  => (string) ($c['commit']['author']['name'] ?? ''),
+            'type'    => greffe_commit_type($firstLine, $msg),
+        ];
+    }
+    // Commits les plus récents d'abord (GitHub les renvoie chronologique croissant).
+    $commits = array_reverse($commits);
+
+    return [
+        'behind_by' => (int) ($r['behind_by'] ?? 0),
+        'ahead_by'  => (int) ($r['ahead_by']  ?? 0),
+        'status'    => (string) ($r['status'] ?? ''),
+        'commits'   => $commits,
+    ];
+}
+
+/**
+ * Détecte le type de commit (conventional commits). Renvoie une étiquette parmi :
+ * 'breaking', 'feat', 'fix', 'perf', 'docs', 'refactor', 'test', 'chore', 'style', 'ci', 'other'.
+ */
+function greffe_commit_type(string $firstLine, string $fullMessage = ''): string
+{
+    if (str_contains($fullMessage, 'BREAKING CHANGE') || preg_match('/^\w+(\(.*?\))?!:/', $firstLine)) {
+        return 'breaking';
+    }
+    if (preg_match('/^(feat|fix|perf|docs|refactor|test|chore|style|ci|build)(\(.*?\))?:/i', $firstLine, $m)) {
+        return strtolower($m[1]);
+    }
+    return 'other';
+}
+
+/**
  * Télécharge le tarball d'un SHA depuis GitHub et renvoie le chemin local du .tar.gz.
  */
 function gh_download_tarball(string $sha): string

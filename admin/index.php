@@ -199,14 +199,21 @@ try {
             $settings = gh_settings();
             $error = '';
             $latest = null;
+            $compare = null;
             if ($settings['owner'] !== '' && $settings['repo'] !== '') {
-                try { $latest = gh_latest_commit(); }
-                catch (Throwable $e) { $error = $e->getMessage(); }
+                try {
+                    $latest  = gh_latest_commit();
+                    $current = current_code_sha();
+                    if ($latest && $current !== '' && $current !== $latest['sha']) {
+                        $compare = gh_compare($current, $latest['sha']);
+                    }
+                } catch (Throwable $e) { $error = $e->getMessage(); }
             }
             view('updates', [
                 'settings' => $settings,
                 'latest'   => $latest,
                 'current'  => current_code_sha(),
+                'compare'  => $compare,
                 'backups'  => backups_list(),
                 'error'    => $error,
             ], 'Mises à jour');

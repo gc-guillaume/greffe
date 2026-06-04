@@ -3,11 +3,30 @@
  * @var array  $settings  ['owner', 'repo', 'branch', 'token']
  * @var ?array $latest    Dernier commit GitHub (sha, short, message, date, author) ou null
  * @var string $current   SHA actuellement déployé (peut être vide)
+ * @var ?array $compare   ['behind_by','ahead_by','status','commits'] ou null
  * @var array  $backups   Liste de backups [['name','size','mtime'], …]
  * @var string $error
  */
 $configured = $settings['owner'] !== '' && $settings['repo'] !== '';
 $upToDate   = $latest && $current !== '' && $latest['sha'] === $current;
+
+/**
+ * Étiquette + couleur pour les badges de commit type.
+ */
+$commitTypeLabel = [
+    'breaking' => ['Breaking', 'commit-breaking'],
+    'feat'     => ['Feature',  'commit-feat'],
+    'fix'      => ['Fix',      'commit-fix'],
+    'perf'     => ['Perf',     'commit-perf'],
+    'refactor' => ['Refactor', 'commit-refactor'],
+    'docs'     => ['Docs',     'commit-docs'],
+    'test'     => ['Test',     'commit-docs'],
+    'chore'    => ['Chore',    'commit-chore'],
+    'style'    => ['Style',    'commit-chore'],
+    'ci'       => ['CI',       'commit-chore'],
+    'build'    => ['Build',    'commit-chore'],
+    'other'    => ['Commit',   'commit-other'],
+];
 ?>
 
 <div class="page-head">
@@ -96,6 +115,29 @@ $isPublic = defined('GREFFE_GH_DEFAULT_PUBLIC') && GREFFE_GH_DEFAULT_PUBLIC === 
                     <span class="status-pill status-published"><span class="status-dot"></span>À jour</span>
                 </p>
             <?php else: ?>
+                <?php if ($compare && $compare['behind_by'] > 0): ?>
+                    <p style="margin-top:.8rem">
+                        <span class="status-pill status-draft">
+                            <span class="status-dot"></span><?= (int) $compare['behind_by'] ?> commit<?= $compare['behind_by'] > 1 ? 's' : '' ?> de retard
+                        </span>
+                    </p>
+
+                    <details class="commits-details">
+                        <summary class="muted small">Voir les changements en attente</summary>
+                        <ul class="commits-list">
+                            <?php foreach ($compare['commits'] as $c):
+                                [$label, $cls] = $commitTypeLabel[$c['type']] ?? $commitTypeLabel['other'];
+                            ?>
+                                <li class="commit-row">
+                                    <span class="commit-type-badge <?= e($cls) ?>"><?= e($label) ?></span>
+                                    <code class="slug-code"><?= e($c['sha']) ?></code>
+                                    <span class="commit-msg"><?= e($c['message']) ?></span>
+                                    <span class="muted small commit-meta"><?= e($c['author']) ?> · <?= e(date('Y-m-d', strtotime($c['date']))) ?></span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </details>
+                <?php endif; ?>
                 <form method="post" action="<?= e(url('index.php?p=updates_apply')) ?>" data-confirm="Lancer la mise à jour vers <?= e($latest['short']) ?> ? Un backup automatique sera créé.">
                     <?= csrf_field() ?>
                     <input type="hidden" name="sha" value="<?= e($latest['sha']) ?>">
