@@ -13,6 +13,7 @@ require_once __DIR__ . '/lib/collections.php';
 require_once __DIR__ . '/lib/records.php';
 require_once __DIR__ . '/lib/render.php';
 require_once __DIR__ . '/lib/users.php';
+require_once __DIR__ . '/lib/updates.php';
 
 schema_install();
 
@@ -192,6 +193,69 @@ try {
             }
             view('user_edit', ['target' => $target, 'error' => $error, 'me' => auth_user()], 'Éditer : ' . $target['username']);
             break;
+
+        case 'updates':
+            if (!user_is_admin()) { http_response_code(403); exit('Accès refusé.'); }
+            $settings = gh_settings();
+            $error = '';
+            $latest = null;
+            if ($settings['owner'] !== '' && $settings['repo'] !== '') {
+                try { $latest = gh_latest_commit(); }
+                catch (Throwable $e) { $error = $e->getMessage(); }
+            }
+            view('updates', [
+                'settings' => $settings,
+                'latest'   => $latest,
+                'current'  => current_code_sha(),
+                'backups'  => backups_list(),
+                'error'    => $error,
+            ], 'Mises à jour');
+            break;
+
+        case 'updates_settings':
+            if (!user_is_admin()) { http_response_code(403); exit('Accès refusé.'); }
+            if ($method === 'POST') {
+                csrf_check();
+                try {
+                    gh_settings_save(
+                        trim((string) ($_POST['owner']  ?? '')),
+                        trim((string) ($_POST['repo']   ?? '')),
+                        trim((string) ($_POST['branch'] ?? 'main')),
+                        trim((string) ($_POST['token']  ?? ''))
+                    );
+                    flash_set('success', 'Réglages GitHub enregistrés.');
+                } catch (Throwable $e) {
+                    flash_set('error', $e->getMessage());
+                }
+            }
+            redirect('index.php?p=updates');
+
+        case 'updates_apply':
+            if (!user_is_admin()) { http_response_code(403); exit('Accès refusé.'); }
+            if ($method === 'POST') {
+                csrf_check();
+                try {
+                    $sha = (string) ($_POST['sha'] ?? '');
+                    $res = apply_update($sha);
+                    flash_set('success', 'Mis à jour vers ' . substr($res['new_sha'], 0, 7) . ' (backup ' . $res['backup'] . ').');
+                } catch (Throwable $e) {
+                    flash_set('error', 'Échec de la mise à jour : ' . $e->getMessage());
+                }
+            }
+            redirect('index.php?p=updates');
+
+        case 'updates_rollback':
+            if (!user_is_admin()) { http_response_code(403); exit('Accès refusé.'); }
+            if ($method === 'POST') {
+                csrf_check();
+                try {
+                    backup_restore((string) ($_POST['name'] ?? ''));
+                    flash_set('success', 'Rollback effectué.');
+                } catch (Throwable $e) {
+                    flash_set('error', 'Échec du rollback : ' . $e->getMessage());
+                }
+            }
+            redirect('index.php?p=updates');
 
         case 'user_delete':
             if ($method === 'POST') {

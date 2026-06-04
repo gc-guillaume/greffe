@@ -84,6 +84,7 @@ if (isset($_GET['col'])) {
             <?php if (function_exists('user_is_admin') && user_is_admin()): ?>
                 <li><a<?= in_array($nav_active_p, ['collections','collection_edit'], true) ? ' class="active"' : '' ?> href="<?= e(url('index.php?p=collections')) ?>"><?= icon('settings') ?><span>Schéma</span></a></li>
                 <li><a href="<?= e(url('index.php?p=collection_new')) ?>"><?= icon('plus') ?><span>Nouvelle collection</span></a></li>
+                <li><a<?= in_array($nav_active_p, ['updates','updates_settings'], true) ? ' class="active"' : '' ?> href="<?= e(url('index.php?p=updates')) ?>"><?= icon('chevron-down') ?><span>Mises à jour</span></a></li>
             <?php endif; ?>
         </ul>
     </nav>

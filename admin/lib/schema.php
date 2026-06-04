@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/migrations.php';
 
 /**
  * Crée les tables si elles n'existent pas. Idempotent.
@@ -80,6 +81,9 @@ function schema_install(): void
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_records_col_slug   ON records(collection, slug)');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_records_col_sort   ON records(collection, sort)');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_versions_record    ON record_versions(record_id, id DESC)');
+
+    // Joue les migrations en attente (ALTER TABLE etc. pour les évolutions de schéma).
+    migrations_run();
 }
 
 /**
