@@ -65,7 +65,10 @@ if (!ini_get('date.timezone')) {
 
 // --- Repo GitHub par défaut (pour les mises à jour) ---
 // Modifie ici si tu déploies Greffe pour un autre projet.
-// Seul le token reste à saisir côté admin (secret par serveur).
 define('GREFFE_GH_DEFAULT_OWNER',  'gc-guillaume');
 define('GREFFE_GH_DEFAULT_REPO',   'greffe');
 define('GREFFE_GH_DEFAULT_BRANCH', 'main');
+// Repo public ? Si true → pas de token nécessaire (limite 60 requêtes/h non-authentifié,
+// largement suffisant pour des checks d'update occasionnels).
+// Si tu repasse le repo en privé, mets à false → l'UI redemandera un token.
+define('GREFFE_GH_DEFAULT_PUBLIC', true);

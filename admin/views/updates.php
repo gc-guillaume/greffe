@@ -22,7 +22,13 @@ $upToDate   = $latest && $current !== '' && $latest['sha'] === $current;
     <div class="alert"><?= e($error) ?></div>
 <?php endif; ?>
 
-<?php if ($settings['token'] === ''): ?>
+<?php
+// Si le repo est marqué comme public (constante GREFFE_GH_DEFAULT_PUBLIC dans config.php),
+// pas besoin de token : GitHub autorise 60 req/h en anonyme, suffisant pour ce use case.
+$isPublic = defined('GREFFE_GH_DEFAULT_PUBLIC') && GREFFE_GH_DEFAULT_PUBLIC === true;
+?>
+
+<?php if (!$isPublic && $settings['token'] === ''): ?>
     <section class="card" style="margin-bottom:1rem;max-width:760px">
         <h2 style="margin-top:0">Token GitHub</h2>
         <p class="muted small">
