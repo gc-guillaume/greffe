@@ -29,10 +29,24 @@ if (!class_exists('GreffeQuery')) {
         private array $with = [];
         /** @var string[] */
         private array $select = [];
+        // Par défaut, find()/get() ne renvoient QUE les records published.
+        // Évite qu'un slug draft deviné/scrappé par un attaquant soit servi
+        // publiquement via content('blog')->find(\$_GET['slug']).
+        private bool $allowDrafts = false;
 
         public function __construct(string $collection)
         {
             $this->collection = $collection;
+        }
+
+        /**
+         * Opt-in : autorise find()/get() à retourner les drafts/archived aussi.
+         * À n'utiliser que dans des contextes admin / preview authentifié.
+         */
+        public function withDrafts(): self
+        {
+            $this->allowDrafts = true;
+            return $this;
         }
 
         /**
@@ -129,11 +143,15 @@ if (!class_exists('GreffeQuery')) {
          */
         public function find(string $slug): ?array
         {
+            $sql = 'SELECT ' . $this->compileSelect() . ' FROM records WHERE collection = :c AND slug = :s';
+            $params = [':c' => $this->collection, ':s' => $slug];
+            if (!$this->allowDrafts) {
+                $sql .= " AND status = 'published'";
+            }
+            $sql .= ' LIMIT 1';
             try {
-                $stmt = db()->prepare(
-                    'SELECT ' . $this->compileSelect() . ' FROM records WHERE collection = :c AND slug = :s LIMIT 1'
-                );
-                $stmt->execute([':c' => $this->collection, ':s' => $slug]);
+                $stmt = db()->prepare($sql);
+                $stmt->execute($params);
                 $row = $stmt->fetch();
             } catch (Throwable $e) {
                 return null;
@@ -150,11 +168,15 @@ if (!class_exists('GreffeQuery')) {
          */
         public function get(int $id): ?array
         {
+            $sql = 'SELECT ' . $this->compileSelect() . ' FROM records WHERE collection = :c AND id = :id';
+            $params = [':c' => $this->collection, ':id' => $id];
+            if (!$this->allowDrafts) {
+                $sql .= " AND status = 'published'";
+            }
+            $sql .= ' LIMIT 1';
             try {
-                $stmt = db()->prepare(
-                    'SELECT ' . $this->compileSelect() . ' FROM records WHERE collection = :c AND id = :id LIMIT 1'
-                );
-                $stmt->execute([':c' => $this->collection, ':id' => $id]);
+                $stmt = db()->prepare($sql);
+                $stmt->execute($params);
                 $row = $stmt->fetch();
             } catch (Throwable $e) {
                 return null;

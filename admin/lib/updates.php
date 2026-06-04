@@ -12,7 +12,9 @@ require_once __DIR__ . '/migrations.php';
  *  - gh_owner    : "gc-guillaume"
  *  - gh_repo     : "greffe"
  *  - gh_branch   : "main"
- *  - gh_token    : Personal Access Token (scope `repo` pour les repos privés)
+ *  - gh_token    : Personal Access Token, chiffré au repos via greffe_encrypt()
+ *                  (XSalsa20-Poly1305, clé dans admin/data/.appkey).
+ *                  Recommandation : fine-grained PAT scopé au seul repo Greffe en read-only.
  *  - code_sha    : SHA actuellement déployé (mis à jour après chaque apply / rollback)
  */
 
@@ -20,17 +22,26 @@ function gh_settings(): array
 {
     // Owner / repo / branch tombent sur les defaults de config.php si jamais surchargés.
     // Le token n'a PAS de default — c'est un secret à entrer par l'admin.
+    $rawToken = (string) (migrations_get('gh_token',  ''));
+    $token    = greffe_decrypt($rawToken);
+
+    // Migration auto cleartext -> encrypted : si une valeur legacy non préfixée
+    // 'enc:' est détectée et non vide, on la ré-écrit chiffrée.
+    if ($rawToken !== '' && !str_starts_with($rawToken, 'enc:') && $token !== '') {
+        migrations_set('gh_token', greffe_encrypt($token));
+    }
+
     return [
         'owner'  => (string) (migrations_get('gh_owner',  GREFFE_GH_DEFAULT_OWNER)),
         'repo'   => (string) (migrations_get('gh_repo',   GREFFE_GH_DEFAULT_REPO)),
         'branch' => (string) (migrations_get('gh_branch', GREFFE_GH_DEFAULT_BRANCH)),
-        'token'  => (string) (migrations_get('gh_token',  '')),
+        'token'  => $token,
     ];
 }
 
 function gh_token_save(string $token): void
 {
-    if ($token !== '') migrations_set('gh_token', $token);
+    if ($token !== '') migrations_set('gh_token', greffe_encrypt($token));
 }
 
 /**
@@ -390,13 +401,27 @@ function apply_update(string $sha): array
 function copy_recursive(string $src, string $dst, array $excludeRels = []): void
 {
     $src = rtrim(str_replace('\\', '/', realpath($src) ?: $src), '/');
-    $dst = rtrim(str_replace('\\', '/', $dst), '/');
+    $dst = rtrim(str_replace('\\', '/', realpath($dst) ?: $dst), '/');
+    if ($src === '' || $dst === '') {
+        throw new RuntimeException('copy_recursive: src/dst introuvables.');
+    }
     $iter = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($src, RecursiveDirectoryIterator::SKIP_DOTS)
     );
     $srcLen = strlen($src) + 1;
     foreach ($iter as $file) {
+        // Skip symlinks : PharData peut matérialiser des symlinks à partir d'entrées
+        // tar malveillantes. RecursiveDirectoryIterator les suit par défaut -> on
+        // pourrait écrire hors webroot via un lien symbolique pointant n'importe où.
+        if ($file->isLink()) continue;
+
         $rel = str_replace('\\', '/', substr($file->getPathname(), $srcLen));
+
+        // Zip-Slip defense : tout segment '..', path absolu, ou drive letter Windows -> reject.
+        if ($rel === '' || str_contains($rel, '..') || $rel[0] === '/' || preg_match('#^[a-zA-Z]:#', $rel)) {
+            continue;
+        }
+
         $skip = false;
         foreach ($excludeRels as $exc) {
             if ($rel === $exc || str_starts_with($rel, $exc . '/')) { $skip = true; break; }
@@ -404,6 +429,16 @@ function copy_recursive(string $src, string $dst, array $excludeRels = []): void
         if ($skip) continue;
 
         $target = $dst . '/' . $rel;
+
+        // Containment check : le dossier parent du target, une fois resolved, doit rester sous $dst.
+        // Protège contre les cas exotiques (symlinks préexistants dans $dst, race condition mkdir).
+        $targetDir = $file->isDir() ? $target : dirname($target);
+        $resolvedParent = realpath(dirname($targetDir)) ?: dirname($targetDir);
+        $resolvedParent = rtrim(str_replace('\\', '/', $resolvedParent), '/');
+        if ($resolvedParent !== $dst && !str_starts_with($resolvedParent . '/', $dst . '/')) {
+            continue;
+        }
+
         if ($file->isDir()) {
             if (!is_dir($target)) @mkdir($target, 0775, true);
         } else {

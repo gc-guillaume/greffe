@@ -495,7 +495,9 @@ try {
                 }
                 // Retour vers le dashboard (ou autre URL interne) si demandé.
                 $return = (string) ($_POST['_return'] ?? '');
-                if ($return !== '' && preg_match('#^index\.php(\?|#|$)#', $return)) {
+                // Whitelist stricte : index.php?p=<page>(&...|#...|fin). Évite tout open-redirect
+                // ou redirection vers un GET inattendu si on en ajoutait un jour.
+                if ($return !== '' && preg_match('#^index\.php\?p=[a-z_]+(&|\#|$)#', $return)) {
                     redirect($return);
                 }
                 redirect('index.php?p=record_edit&id=' . $id);

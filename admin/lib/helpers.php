@@ -71,6 +71,68 @@ function greffe_public_url_capture(): void
     migrations_set('public_url', $proto . '://' . $host);
 }
 
+/* ---------- Crypto at rest (secrets _meta) ---------- */
+
+/**
+ * Renvoie la clé d'app 32 octets (AES-256-GCM) utilisée pour chiffrer
+ * les secrets stockés dans _meta (PAT GitHub principalement).
+ * Auto-créée à la 1ère lecture, stockée dans admin/data/.appkey (perms 0600).
+ *
+ * Le fichier est sous admin/data/ donc :
+ *  - gitignored (admin/data/**)
+ *  - bloqué côté web par admin/data/.htaccess
+ *  - inclus dans aucun backup (backup_create exclut admin/data)
+ *
+ * Conséquence : si admin/data est compromis (FTP, dump SQLite), la clé ET la DB
+ * tombent ensemble — pas pire que le statu quo. Mais une fuite de la DB seule
+ * (ex : SQL injection, export inadvertant) ne donne plus le PAT en clair.
+ */
+function greffe_appkey(): string
+{
+    $path = GREFFE_DATA_DIR . '/.appkey';
+    if (is_file($path)) {
+        $k = @file_get_contents($path);
+        if (is_string($k) && strlen($k) === 32) return $k;
+    }
+    $k = random_bytes(32);
+    @file_put_contents($path, $k, LOCK_EX);
+    @chmod($path, 0600);
+    return $k;
+}
+
+/**
+ * Chiffre une chaîne pour stockage dans _meta (AES-256-GCM via OpenSSL).
+ * Format : 'enc:' . base64(iv(12) || tag(16) || ciphertext).
+ * Le préfixe permet de détecter les valeurs legacy (cleartext) et de les
+ * migrer au read.
+ */
+function greffe_encrypt(string $plaintext): string
+{
+    if ($plaintext === '') return '';
+    $iv  = random_bytes(12);
+    $tag = '';
+    $ct  = openssl_encrypt($plaintext, 'aes-256-gcm', greffe_appkey(), OPENSSL_RAW_DATA, $iv, $tag, '', 16);
+    if ($ct === false) return '';
+    return 'enc:' . base64_encode($iv . $tag . $ct);
+}
+
+/**
+ * Déchiffre une valeur _meta. Si pas de préfixe 'enc:' → cleartext legacy, renvoyé tel quel.
+ * Si déchiffrement échoue (clé perdue / corruption / mauvais tag GCM) → '' (force l'admin à ressaisir).
+ */
+function greffe_decrypt(string $stored): string
+{
+    if ($stored === '') return '';
+    if (!str_starts_with($stored, 'enc:')) return $stored;
+    $raw = base64_decode(substr($stored, 4), true);
+    if (!is_string($raw) || strlen($raw) < 12 + 16 + 1) return '';
+    $iv  = substr($raw, 0, 12);
+    $tag = substr($raw, 12, 16);
+    $ct  = substr($raw, 28);
+    $pt  = openssl_decrypt($ct, 'aes-256-gcm', greffe_appkey(), OPENSSL_RAW_DATA, $iv, $tag);
+    return $pt === false ? '' : $pt;
+}
+
 /**
  * Démarre la session admin (cookie durci).
  */
