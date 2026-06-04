@@ -331,17 +331,25 @@
         });
         return _notyf;
     }
+    // Notyf injecte le message via innerHTML (cf. notyf.min.js).
+    // On HTML-escape AVANT de lui passer la string pour éviter toute XSS
+    // si un jour un flash_set('error', $e->getMessage()) contient du HTML utilisateur.
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
+            return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+        });
+    }
     Greffe.toast = function (message, type) {
         var n = notyfInstance();
         if (!n) {
-            // Fallback hyper-minimaliste si Notyf pas chargé.
             try { console.log('[toast]', type || 'info', message); } catch (e) {}
             return;
         }
+        var safe = escapeHtml(message);
         type = type || 'info';
-        if (type === 'success') n.success({ message: String(message) });
-        else if (type === 'error') n.error({ message: String(message) });
-        else n.open({ type: 'info', message: String(message) });
+        if (type === 'success') n.success({ message: safe });
+        else if (type === 'error') n.error({ message: safe });
+        else n.open({ type: 'info', message: safe });
     };
 
     /* ========== Confirmations sur formulaires (data-confirm) ========== */

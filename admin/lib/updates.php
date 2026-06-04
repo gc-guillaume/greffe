@@ -49,30 +49,17 @@ function current_code_sha(): string
 }
 
 /**
- * Renvoie le chemin d'un cacert.pem utilisable, en l'auto-téléchargeant
- * si nécessaire (cas Windows local où php.ini pointe vers un fichier absent).
- * Stocké dans admin/data/ (gitignored).
+ * Renvoie le chemin du cacert.pem vendoré (committé dans le repo, vérifié).
+ * Fallback : '' → libcurl utilise le truststore système (Linux/macOS).
+ *
+ * Pas de bootstrap-download : un attaquant on-path pourrait substituer la CA
+ * et MITM tous les appels API GitHub qui suivent.
  */
 function greffe_cacert_path(): string
 {
-    $path = GREFFE_DATA_DIR . '/cacert.pem';
-    if (is_file($path) && filesize($path) > 100000) return $path;
-
-    // Bootstrap : download depuis curl.se (source upstream officielle Mozilla).
-    // verify_peer désactivé UNIQUEMENT pour ce bootstrap one-shot.
-    $ctx = stream_context_create([
-        'http' => [
-            'timeout'    => 30,
-            'user_agent' => 'Greffe',
-        ],
-        'ssl'  => ['verify_peer' => false, 'verify_peer_name' => false],
-    ]);
-    $body = @file_get_contents('https://curl.se/ca/cacert.pem', false, $ctx);
-    if (is_string($body) && strlen($body) > 100000 && str_contains($body, '-----BEGIN CERTIFICATE-----')) {
-        @file_put_contents($path, $body);
-        return $path;
-    }
-    return ''; // fallback : on laissera curl utiliser le default système
+    $bundled = GREFFE_ADMIN_DIR . '/assets/vendor/cacert.pem';
+    if (is_file($bundled) && filesize($bundled) > 100000) return $bundled;
+    return ''; // libcurl tombera sur le store système
 }
 
 /**
@@ -305,13 +292,28 @@ function backup_restore(string $name): void
 
     for ($i = 0; $i < $zip->numFiles; $i++) {
         $entry = (string) $zip->getNameIndex($i);
+
+        // Defense-in-depth contre Zip Slip : refuse les entries traversantes
+        // ou commençant par un slash absolu (Linux / Windows).
+        if ($entry === '' || str_contains($entry, '..')) continue;
+        if (str_starts_with($entry, '/') || str_starts_with($entry, '\\')) continue;
+        if (preg_match('#^[a-zA-Z]:[\\\\/]#', $entry)) continue; // chemins Windows absolus
+
         if (str_starts_with($entry, 'admin/data/'))    continue;
         if (str_starts_with($entry, 'admin/uploads/')) continue;
         if (str_starts_with($entry, '.git/'))          continue;
 
         $dest = $root . '/' . $entry;
-        $dir  = dirname($dest);
-        if (!is_dir($dir)) @mkdir($dir, 0775, true);
+        // Vérification finale : le destPath réel doit bien rester sous $root.
+        $destDirReal = realpath(dirname($dest));
+        if ($destDirReal === false) {
+            // Le dossier parent n'existe pas encore — on le crée puis on revalide.
+            @mkdir(dirname($dest), 0775, true);
+            $destDirReal = realpath(dirname($dest));
+        }
+        $rootReal = realpath($root);
+        if ($destDirReal === false || $rootReal === false) continue;
+        if (!str_starts_with($destDirReal . DIRECTORY_SEPARATOR, $rootReal . DIRECTORY_SEPARATOR)) continue;
 
         $stream = $zip->getStream($entry);
         if ($stream !== false) {

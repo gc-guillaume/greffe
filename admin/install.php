@@ -18,7 +18,13 @@ $alreadyInstalled = !schema_needs_install();
 $error = '';
 $ok    = false;
 
-if (!$alreadyInstalled && $_SERVER['REQUEST_METHOD'] === 'POST') {
+// Gate anti-hijack : l'install est verrouillée tant que l'opérateur n'a pas créé
+// admin/config.local.php avec `define('GREFFE_INSTALL_ALLOWED', true);`.
+// Empêche un attaquant qui découvre l'URL avant l'admin légitime de créer le premier compte.
+$installLocked = !$alreadyInstalled
+    && !(defined('GREFFE_INSTALL_ALLOWED') && GREFFE_INSTALL_ALLOWED === true);
+
+if (!$alreadyInstalled && !$installLocked && $_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $username = trim((string) ($_POST['username'] ?? ''));
         $email    = trim((string) ($_POST['email']    ?? ''));
@@ -62,7 +68,15 @@ if (!$alreadyInstalled && $_SERVER['REQUEST_METHOD'] === 'POST') {
 <main class="card">
 <h1>Greffe — installation</h1>
 
-<?php if ($alreadyInstalled && !$ok): ?>
+<?php if ($installLocked): ?>
+    <div class="alert">Installation verrouillée.</div>
+    <p class="muted small">Pour activer l'installation, crée <code>admin/config.local.php</code> avec :</p>
+    <pre style="background:#f1f5f9;padding:.8rem;border-radius:10px;font-size:.85rem;overflow:auto">&lt;?php
+if (!defined('GREFFE_INSTALL_ALLOWED')) define('GREFFE_INSTALL_ALLOWED', true);</pre>
+    <p class="muted small">Le fichier est gitignored (jamais committé). Tu peux ajouter cette ligne en FTP/SSH avant de lancer l'install, puis la supprimer après.</p>
+    <p class="muted small">Cette protection empêche un attaquant qui découvrirait l'URL <code>install.php</code> avant toi de créer le premier compte admin.</p>
+
+<?php elseif ($alreadyInstalled && !$ok): ?>
     <p>Installation déjà effectuée.</p>
     <p><strong>Supprimez le fichier <code>admin/install.php</code></strong> du serveur pour finaliser la sécurisation.</p>
     <p><a href="<?= e(GREFFE_BASE_URL) ?>/index.php">Accéder à l'administration</a></p>

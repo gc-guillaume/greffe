@@ -138,7 +138,10 @@ function reset_token_clear(int $userId): void
  */
 function greffe_mail(string $to, string $subject, string $body): bool
 {
-    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    // From: dérivé du public_url STOCKÉ (capturé à l'install / login admin),
+    // PAS de HTTP_HOST qui est attaquant-contrôlable sur la route publique /forgot.
+    $publicUrl = function_exists('greffe_public_url') ? greffe_public_url() : '';
+    $host = $publicUrl !== '' ? (string) parse_url($publicUrl, PHP_URL_HOST) : 'localhost';
     $from = 'no-reply@' . preg_replace('/[^a-z0-9.\-]/i', '', $host);
     $headers = implode("\r\n", [
         'From: Greffe <' . $from . '>',
