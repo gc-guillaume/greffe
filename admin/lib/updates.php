@@ -49,6 +49,33 @@ function current_code_sha(): string
 }
 
 /**
+ * Renvoie le chemin d'un cacert.pem utilisable, en l'auto-téléchargeant
+ * si nécessaire (cas Windows local où php.ini pointe vers un fichier absent).
+ * Stocké dans admin/data/ (gitignored).
+ */
+function greffe_cacert_path(): string
+{
+    $path = GREFFE_DATA_DIR . '/cacert.pem';
+    if (is_file($path) && filesize($path) > 100000) return $path;
+
+    // Bootstrap : download depuis curl.se (source upstream officielle Mozilla).
+    // verify_peer désactivé UNIQUEMENT pour ce bootstrap one-shot.
+    $ctx = stream_context_create([
+        'http' => [
+            'timeout'    => 30,
+            'user_agent' => 'Greffe',
+        ],
+        'ssl'  => ['verify_peer' => false, 'verify_peer_name' => false],
+    ]);
+    $body = @file_get_contents('https://curl.se/ca/cacert.pem', false, $ctx);
+    if (is_string($body) && strlen($body) > 100000 && str_contains($body, '-----BEGIN CERTIFICATE-----')) {
+        @file_put_contents($path, $body);
+        return $path;
+    }
+    return ''; // fallback : on laissera curl utiliser le default système
+}
+
+/**
  * Appel HTTP simple vers l'API GitHub.
  */
 function gh_api(string $path, bool $rawBody = false): mixed
@@ -65,14 +92,18 @@ function gh_api(string $path, bool $rawBody = false): mixed
     if ($s['token'] !== '') $headers[] = 'Authorization: Bearer ' . $s['token'];
 
     $ch = curl_init($url);
-    curl_setopt_array($ch, [
+    $opts = [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HTTPHEADER     => $headers,
         CURLOPT_FOLLOWLOCATION => true,
         CURLOPT_MAXREDIRS      => 5,
         CURLOPT_TIMEOUT        => 30,
         CURLOPT_SSL_VERIFYPEER => true,
-    ]);
+    ];
+    $cacert = greffe_cacert_path();
+    if ($cacert !== '') $opts[CURLOPT_CAINFO] = $cacert;
+    curl_setopt_array($ch, $opts);
+
     $body = curl_exec($ch);
     $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $err  = curl_error($ch);
