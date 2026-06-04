@@ -4,6 +4,62 @@ declare(strict_types=1);
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/db.php';
 
+/* ---------- Brute-force protection sur le login ---------- */
+// Lockout après 5 échecs en 15 min, sur la même paire IP+username.
+const GREFFE_LOGIN_MAX_FAILS    = 5;
+const GREFFE_LOGIN_WINDOW       = 900;  // 15 min
+const GREFFE_LOGIN_LOCKOUT_TIME = 900;  // 15 min
+
+function login_throttle_key(string $username, string $ip): string
+{
+    return 'login_fail_' . sha1(strtolower($username) . '|' . $ip);
+}
+
+/**
+ * Renvoie un message d'erreur (string) si la paire IP+username est temporairement bloquée,
+ * null sinon.
+ */
+function login_throttle_check(string $username, string $ip): ?string
+{
+    require_once __DIR__ . '/migrations.php';
+    $raw = migrations_get(login_throttle_key($username, $ip), '');
+    if ($raw === '' || $raw === null) return null;
+    $d = json_decode((string) $raw, true);
+    if (!is_array($d)) return null;
+    $until = (int) ($d['until'] ?? 0);
+    if ($until > time()) {
+        $remain = $until - time();
+        return 'Trop de tentatives. Réessaie dans ' . max(1, (int) ceil($remain / 60)) . ' min.';
+    }
+    return null;
+}
+
+function login_throttle_record_fail(string $username, string $ip): void
+{
+    require_once __DIR__ . '/migrations.php';
+    $key  = login_throttle_key($username, $ip);
+    $raw  = migrations_get($key, '');
+    $d    = is_string($raw) && $raw !== '' ? json_decode($raw, true) : null;
+    $d    = is_array($d) ? $d : ['count' => 0, 'last' => 0, 'until' => 0];
+    $now  = time();
+    // Reset le compteur si la dernière tentative date d'avant la fenêtre.
+    if (((int) ($d['last'] ?? 0)) < $now - GREFFE_LOGIN_WINDOW) $d['count'] = 0;
+    $d['count']++;
+    $d['last'] = $now;
+    if ($d['count'] >= GREFFE_LOGIN_MAX_FAILS) {
+        $d['until'] = $now + GREFFE_LOGIN_LOCKOUT_TIME;
+    }
+    migrations_set($key, json_encode($d));
+}
+
+function login_throttle_reset(string $username, string $ip): void
+{
+    require_once __DIR__ . '/migrations.php';
+    // On supprime la clé proprement de _meta.
+    db()->prepare('DELETE FROM _meta WHERE key = :k')
+        ->execute([':k' => login_throttle_key($username, $ip)]);
+}
+
 /**
  * Tente de logger un utilisateur. Régénère l'id de session si OK.
  */

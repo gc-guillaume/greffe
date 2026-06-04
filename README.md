@@ -247,16 +247,55 @@ Les **10 versions les plus récentes** sont conservées par record (purge auto).
 Le panneau « Historique » dans la sidebar du formulaire d'édition liste les versions disponibles, avec un bouton **Restaurer** par version.
 La restauration est elle-même versionnée : l'état courant est snapshoté avant d'être écrasé, donc on peut toujours revenir en arrière tant qu'on n'a pas dépassé 10 sauvegardes.
 
+## Personnaliser l'installation
+
+### Overrides locaux (`admin/config.local.php`)
+
+Pour personnaliser sans risquer de perdre tes modifs au prochain update, crée un fichier `admin/config.local.php` (gitignored). Greffe le charge automatiquement à la fin de `config.php`. Format :
+
+```php
+<?php
+// Mode dev : install.php n'est pas auto-supprimé après création de l'admin
+if (!defined('GREFFE_KEEP_INSTALL'))    define('GREFFE_KEEP_INSTALL', true);
+
+// Augmenter la limite d'upload (15 Mo)
+if (!defined('GREFFE_UPLOAD_MAX'))      define('GREFFE_UPLOAD_MAX', 15 * 1024 * 1024);
+
+// Pointer les updates vers un autre fork
+if (!defined('GREFFE_GH_DEFAULT_OWNER')) define('GREFFE_GH_DEFAULT_OWNER', 'ton-org');
+if (!defined('GREFFE_GH_DEFAULT_REPO'))  define('GREFFE_GH_DEFAULT_REPO',  'ton-fork-greffe');
+```
+
+`admin/config.local.php` n'est PAS dans le repo, donc jamais écrasé par un update.
+
+### Renommer `/admin/` (security through obscurity)
+
+Faisable mais avec un coût : ça casse l'auto-update from GitHub (le tarball contient `admin/`).
+Si tu y tiens :
+- Renomme physiquement `admin/` → `backoffice/` (ou ce que tu veux)
+- Update ton front : `require __DIR__ . '/backoffice/lib/content.php';`
+- Les URLs `/backoffice/...` fonctionnent automatiquement (auto-détection de base URL)
+- **Désactive l'auto-update** : tu feras les updates en FTP / git pull à la main
+
+Honnêtement, un mot de passe fort + le rate-limiting (ci-dessous) protègent plus que renommer le dossier.
+
+### Renommer le repo GitHub
+
+Tu peux renommer ton fork plus tard (Settings → General → Repository name). **GitHub redirige automatiquement** l'URL ET l'API tarball. Greffe continuera de fonctionner avec les anciennes constantes en place. À toi de mettre à jour `GREFFE_GH_DEFAULT_REPO` quand tu veux nettoyer.
+
 ## Sécurité
 
-- Mots de passe : `password_hash` / `password_verify`.
-- Sessions : cookie `HttpOnly`, `SameSite=Lax`, id régénéré au login.
-- Token CSRF requis sur tous les POST de l'admin.
-- Échappement systématique en sortie (`htmlspecialchars`).
-- Uploads : whitelist MIME, taille max (5 Mo par défaut, modifiable dans `admin/config.php`).
-- `admin/data/` est bloqué par `.htaccess` (la base SQLite n'est jamais téléchargeable).
+- Mots de passe : `password_hash` / `password_verify` (bcrypt).
+- **Brute-force protection** sur le login : 5 tentatives échouées en 15 min sur la même paire IP+username → lockout 15 min. Stocké en `_meta`, reset automatique au login réussi.
+- **Auto-suppression d'`install.php`** après création du premier admin (réversible via `define('GREFFE_KEEP_INSTALL', true)` en mode dev).
+- Sessions : cookie `HttpOnly`, `SameSite=Lax`, `Secure` auto en HTTPS, id régénéré au login.
+- Token CSRF requis sur tous les POST de l'admin (login inclus, logout inclus).
+- Échappement systématique en sortie (`htmlspecialchars` via `e()`).
+- Uploads : whitelist MIME via `finfo`, extension dérivée du MIME validé (jamais du nom utilisateur, anti-polyglotte), SVG exclu (anti-XSS), taille max 10 Mo (modifiable).
+- `admin/data/` est bloqué par `.htaccess` (la base SQLite n'est jamais téléchargeable sur Apache/LiteSpeed).
 - `admin/uploads/` interdit l'exécution PHP.
-- `content.php` est **strictement en lecture**.
+- `content.php` est **strictement en lecture** — la table `users` n'est jamais accessible depuis le front.
+- Reset password via token 128 bits one-shot expirant en 1h, URL construite depuis `_meta.public_url` (capturée à l'install / login admin, jamais depuis `HTTP_HOST` — anti host header injection).
 
 ---
 

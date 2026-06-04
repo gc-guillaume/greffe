@@ -13,6 +13,7 @@ admin/uploads/**
 # Configuration locale potentielle
 .env
 .env.local
+admin/config.local.php
 
 # Editor / OS
 .DS_Store

@@ -32,12 +32,20 @@ if ($page === 'login') {
     $error = '';
     if ($method === 'POST') {
         csrf_check();
-        $u = trim((string) ($_POST['username'] ?? ''));
-        $p = (string) ($_POST['password'] ?? '');
-        if (auth_attempt($u, $p)) {
+        $u  = trim((string) ($_POST['username'] ?? ''));
+        $p  = (string) ($_POST['password'] ?? '');
+        $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
+
+        $blocked = login_throttle_check($u, $ip);
+        if ($blocked !== null) {
+            $error = $blocked;
+        } elseif (auth_attempt($u, $p)) {
+            login_throttle_reset($u, $ip);
             redirect('index.php');
+        } else {
+            login_throttle_record_fail($u, $ip);
+            $error = 'Identifiants invalides.';
         }
-        $error = 'Identifiants invalides.';
     }
     view('login', ['error' => $error], 'Connexion');
     exit;

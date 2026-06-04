@@ -84,6 +84,15 @@ if (!ini_get('date.timezone')) {
     date_default_timezone_set('UTC');
 }
 
+// --- Overrides locaux (gitignored) ---
+// Le client peut créer admin/config.local.php pour redéfinir des constantes
+// (GREFFE_UPLOAD_MAX, GREFFE_GH_DEFAULT_*, GREFFE_KEEP_INSTALL, etc.) sans risquer
+// de perdre ses customisations à chaque update.
+// Format attendu : `if (!defined('FOO')) define('FOO', 'bar');`
+if (is_file(__DIR__ . '/config.local.php')) {
+    require __DIR__ . '/config.local.php';
+}
+
 // --- Repo GitHub par défaut (pour les mises à jour) ---
 // Modifie ici si tu déploies Greffe pour un autre projet.
 define('GREFFE_GH_DEFAULT_OWNER',  'gc-guillaume');

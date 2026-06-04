@@ -31,6 +31,18 @@ if (!$alreadyInstalled && $_SERVER['REQUEST_METHOD'] === 'POST') {
         user_create($username, $email, $password, 'admin');
         // Capture l'URL publique au moment de l'install (admin connecté via le bon domaine).
         greffe_public_url_capture();
+
+        // Auto-suppression d'install.php pour éviter qu'il traîne en prod.
+        // En dev, définis GREFFE_KEEP_INSTALL = true dans admin/config.local.php pour le garder.
+        $keep = (defined('GREFFE_KEEP_INSTALL') && GREFFE_KEEP_INSTALL === true);
+        if (!$keep) {
+            // Sur la plupart des OS, unlink réussit même pendant l'exécution du script
+            // (l'inode reste valide jusqu'à fin du process, le fichier est juste retiré du dirent).
+            $autoDeleted = @unlink(__FILE__);
+        } else {
+            $autoDeleted = false;
+        }
+
         $ok = true;
         $alreadyInstalled = true;
     } catch (Throwable $e) {
@@ -56,7 +68,13 @@ if (!$alreadyInstalled && $_SERVER['REQUEST_METHOD'] === 'POST') {
     <p><a href="<?= e(GREFFE_BASE_URL) ?>/index.php">Accéder à l'administration</a></p>
 <?php elseif ($ok): ?>
     <p>Compte administrateur créé avec succès.</p>
-    <p><strong>Supprimez maintenant le fichier <code>admin/install.php</code></strong> avant de continuer.</p>
+    <?php if (!empty($autoDeleted)): ?>
+        <p class="muted small">Le fichier <code>admin/install.php</code> a été supprimé automatiquement (sécurité).</p>
+    <?php elseif (empty($keep)): ?>
+        <p><strong>Supprimez maintenant le fichier <code>admin/install.php</code></strong> (la suppression automatique a échoué — droits FS).</p>
+    <?php else: ?>
+        <p class="muted small">Mode dev (<code>GREFFE_KEEP_INSTALL = true</code>) — install.php est conservé pour permettre de retester.</p>
+    <?php endif; ?>
     <p><a href="<?= e(GREFFE_BASE_URL) ?>/index.php?p=login">Se connecter</a></p>
 <?php else: ?>
     <p class="muted">Aucun utilisateur n'existe encore. Créez le compte administrateur.</p>
