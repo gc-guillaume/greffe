@@ -18,20 +18,29 @@ require_once __DIR__ . '/migrations.php';
 
 function gh_settings(): array
 {
+    // Owner / repo / branch tombent sur les defaults de config.php si jamais surchargés.
+    // Le token n'a PAS de default — c'est un secret à entrer par l'admin.
     return [
-        'owner'  => (string) (migrations_get('gh_owner', '')),
-        'repo'   => (string) (migrations_get('gh_repo', '')),
-        'branch' => (string) (migrations_get('gh_branch', 'main')),
-        'token'  => (string) (migrations_get('gh_token', '')),
+        'owner'  => (string) (migrations_get('gh_owner',  GREFFE_GH_DEFAULT_OWNER)),
+        'repo'   => (string) (migrations_get('gh_repo',   GREFFE_GH_DEFAULT_REPO)),
+        'branch' => (string) (migrations_get('gh_branch', GREFFE_GH_DEFAULT_BRANCH)),
+        'token'  => (string) (migrations_get('gh_token',  '')),
     ];
 }
 
-function gh_settings_save(string $owner, string $repo, string $branch, string $token): void
+function gh_token_save(string $token): void
 {
-    migrations_set('gh_owner',  $owner);
-    migrations_set('gh_repo',   $repo);
-    migrations_set('gh_branch', $branch !== '' ? $branch : 'main');
-    if ($token !== '') migrations_set('gh_token', $token); // ne pas écraser si laissé vide
+    if ($token !== '') migrations_set('gh_token', $token);
+}
+
+/**
+ * Override avancé : modifier owner / repo / branch (utile si tu déploies Greffe pour un autre projet).
+ */
+function gh_repo_save(string $owner, string $repo, string $branch): void
+{
+    if ($owner  !== '') migrations_set('gh_owner',  $owner);
+    if ($repo   !== '') migrations_set('gh_repo',   $repo);
+    if ($branch !== '') migrations_set('gh_branch', $branch);
 }
 
 function current_code_sha(): string

@@ -217,13 +217,13 @@ try {
             if ($method === 'POST') {
                 csrf_check();
                 try {
-                    gh_settings_save(
-                        trim((string) ($_POST['owner']  ?? '')),
-                        trim((string) ($_POST['repo']   ?? '')),
-                        trim((string) ($_POST['branch'] ?? 'main')),
-                        trim((string) ($_POST['token']  ?? ''))
-                    );
-                    flash_set('success', 'Réglages GitHub enregistrés.');
+                    gh_token_save(trim((string) ($_POST['token'] ?? '')));
+                    // Override repo facultatif (pour qui veut déployer sur un autre dépôt)
+                    $o = trim((string) ($_POST['owner']  ?? ''));
+                    $r = trim((string) ($_POST['repo']   ?? ''));
+                    $b = trim((string) ($_POST['branch'] ?? ''));
+                    if ($o !== '' || $r !== '' || $b !== '') gh_repo_save($o, $r, $b);
+                    flash_set('success', 'Réglages enregistrés.');
                 } catch (Throwable $e) {
                     flash_set('error', $e->getMessage());
                 }

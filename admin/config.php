@@ -62,3 +62,10 @@ define('GREFFE_UPLOAD_MIME', array_merge(GREFFE_UPLOAD_IMAGE_MIME, GREFFE_UPLOAD
 if (!ini_get('date.timezone')) {
     date_default_timezone_set('UTC');
 }
+
+// --- Repo GitHub par défaut (pour les mises à jour) ---
+// Modifie ici si tu déploies Greffe pour un autre projet.
+// Seul le token reste à saisir côté admin (secret par serveur).
+define('GREFFE_GH_DEFAULT_OWNER',  'gc-guillaume');
+define('GREFFE_GH_DEFAULT_REPO',   'greffe');
+define('GREFFE_GH_DEFAULT_BRANCH', 'main');

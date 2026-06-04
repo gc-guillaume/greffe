@@ -22,30 +22,51 @@ $upToDate   = $latest && $current !== '' && $latest['sha'] === $current;
     <div class="alert"><?= e($error) ?></div>
 <?php endif; ?>
 
-<section class="card" style="margin-bottom:1rem;max-width:760px">
-    <h2 style="margin-top:0">Réglages GitHub</h2>
-    <p class="muted small">Pour un repo privé, génère un Personal Access Token avec le scope <code>repo</code> sur <a href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a>.</p>
+<?php if ($settings['token'] === ''): ?>
+    <section class="card" style="margin-bottom:1rem;max-width:760px">
+        <h2 style="margin-top:0">Token GitHub</h2>
+        <p class="muted small">
+            Repo : <code><?= e($settings['owner']) ?>/<?= e($settings['repo']) ?></code> · branche <code><?= e($settings['branch']) ?></code>.
+            Pour qu'on puisse lire les commits et télécharger les tarballs, génère un Personal Access Token avec le scope <code>repo</code> sur
+            <a href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a>.
+        </p>
+        <form method="post" action="<?= e(url('index.php?p=updates_settings')) ?>">
+            <?= csrf_field() ?>
+            <label>Token
+                <input type="password" name="token" required placeholder="ghp_…" autocomplete="new-password" autofocus>
+            </label>
+            <div style="margin-top:1rem"><button type="submit" class="primary">Enregistrer le token</button></div>
+        </form>
+    </section>
+<?php endif; ?>
+
+<details class="card" style="margin-bottom:1rem;max-width:760px">
+    <summary class="muted small" style="cursor:pointer;font-weight:600">Réglages avancés (changer de repo ou de token)</summary>
+    <p class="muted small" style="margin-top:.8rem">
+        Owner / repo / branche par défaut viennent de <code>admin/config.php</code>
+        (constantes <code>GREFFE_GH_DEFAULT_*</code>). Override ici si tu déploies Greffe ailleurs.
+    </p>
     <form method="post" action="<?= e(url('index.php?p=updates_settings')) ?>">
         <?= csrf_field() ?>
         <div class="grid-2">
-            <label>Owner (utilisateur ou orga)
-                <input type="text" name="owner" value="<?= e($settings['owner']) ?>" placeholder="gc-guillaume" required>
+            <label>Owner
+                <input type="text" name="owner" value="<?= e($settings['owner']) ?>">
             </label>
             <label>Repo
-                <input type="text" name="repo" value="<?= e($settings['repo']) ?>" placeholder="greffe" required>
+                <input type="text" name="repo" value="<?= e($settings['repo']) ?>">
             </label>
         </div>
         <div class="grid-2">
             <label>Branche
-                <input type="text" name="branch" value="<?= e($settings['branch']) ?>" placeholder="main">
+                <input type="text" name="branch" value="<?= e($settings['branch']) ?>">
             </label>
-            <label>Token <small class="muted">(laisser vide pour ne pas changer)</small>
-                <input type="password" name="token" value="" placeholder="<?= $settings['token'] !== '' ? '(défini)' : 'ghp_…' ?>" autocomplete="new-password">
+            <label>Token <small class="muted">(laisser vide pour conserver l'actuel)</small>
+                <input type="password" name="token" placeholder="<?= $settings['token'] !== '' ? '(défini)' : 'ghp_…' ?>" autocomplete="new-password">
             </label>
         </div>
-        <div style="margin-top:1rem"><button type="submit" class="primary">Enregistrer</button></div>
+        <div style="margin-top:1rem"><button type="submit">Enregistrer</button></div>
     </form>
-</section>
+</details>
 
 <?php if ($configured): ?>
     <section class="card" style="margin-bottom:1rem;max-width:760px">
