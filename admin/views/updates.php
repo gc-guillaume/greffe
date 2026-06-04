@@ -115,10 +115,15 @@ $isPublic = defined('GREFFE_GH_DEFAULT_PUBLIC') && GREFFE_GH_DEFAULT_PUBLIC === 
                     <span class="status-pill status-published"><span class="status-dot"></span>À jour</span>
                 </p>
             <?php else: ?>
-                <?php if ($compare && $compare['behind_by'] > 0): ?>
+                <?php
+                // Côté GitHub : ahead_by = nombre de commits que head a en plus de base
+                // = ce qu'on devra appliquer en faisant l'update.
+                $behindCount = $compare ? (int) $compare['ahead_by'] : 0;
+                if ($compare && $behindCount > 0):
+                ?>
                     <p style="margin-top:.8rem">
                         <span class="status-pill status-draft">
-                            <span class="status-dot"></span><?= (int) $compare['behind_by'] ?> commit<?= $compare['behind_by'] > 1 ? 's' : '' ?> de retard
+                            <span class="status-dot"></span><?= $behindCount ?> commit<?= $behindCount > 1 ? 's' : '' ?> de retard
                         </span>
                     </p>
 
