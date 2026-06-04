@@ -110,23 +110,6 @@ if ($page === 'reset') {
     header('Expires: 0');
     header('X-LiteSpeed-Cache-Control: no-cache');
 
-    // -------- DEBUG TRACE (à retirer une fois résolu) --------
-    @file_put_contents(
-        GREFFE_DATA_DIR . '/reset-debug.log',
-        sprintf(
-            "[%s] ENTER reset route\n  REQUEST_URI=%s\n  QUERY_STRING=%s\n  GET=%s\n  POST keys=%s\n  method=%s\n  cookies keys=%s\n",
-            date('Y-m-d H:i:s'),
-            (string) ($_SERVER['REQUEST_URI'] ?? ''),
-            (string) ($_SERVER['QUERY_STRING'] ?? ''),
-            json_encode(array_map(fn($v) => is_string($v) ? (strlen($v) > 64 ? substr($v, 0, 8) . '…(' . strlen($v) . ')' : $v) : $v, $_GET)),
-            json_encode(array_keys($_POST)),
-            $method,
-            json_encode(array_keys($_COOKIE ?? []))
-        ),
-        FILE_APPEND
-    );
-    // ---------------------------------------------------------
-
     $token = (string) ($_GET['token'] ?? $_POST['token'] ?? '');
     // Filet : si l'URL contient &amp;token=... (entité HTML non décodée par certains
     // clients mail / proxies / copy-paste), PHP parse 'amp;token' comme clé. On répare
@@ -138,33 +121,7 @@ if ($page === 'reset') {
         parse_str(str_replace('&amp;', '&', (string) $_SERVER['QUERY_STRING']), $qsRepair);
         if (!empty($qsRepair['token'])) $token = (string) $qsRepair['token'];
     }
-
-    // -------- DEBUG TRACE --------
-    @file_put_contents(
-        GREFFE_DATA_DIR . '/reset-debug.log',
-        sprintf(
-            "[%s] PRE-verify token_len=%d token_fingerprint=%s\n",
-            date('Y-m-d H:i:s'),
-            strlen($token),
-            $token === '' ? '(empty)' : substr($token, 0, 6) . '…' . substr($token, -4)
-        ),
-        FILE_APPEND
-    );
-    // -----------------------------
-
-    $u     = reset_token_verify($token);
-
-    // -------- DEBUG TRACE --------
-    @file_put_contents(
-        GREFFE_DATA_DIR . '/reset-debug.log',
-        sprintf(
-            "[%s] POST-verify result=%s\n",
-            date('Y-m-d H:i:s'),
-            $u ? 'USER id=' . (int) ($u['id'] ?? 0) : 'NULL'
-        ),
-        FILE_APPEND
-    );
-    // -----------------------------
+    $u = reset_token_verify($token);
     $error = '';
     $done  = false;
     if (!$u) {
