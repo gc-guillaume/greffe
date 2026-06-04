@@ -140,23 +140,27 @@ small.muted { font-weight: normal; }
     padding: 1.2rem 1.5rem 4rem;
 }
 
-/* Sidebar fixée 340px — transparente, sans border */
+/* Sidebar fixée — carte flottante, marge 1rem partout, fond blanc, squircle */
 .with-side .container {
-    margin-left: 340px;
+    margin-left: calc(340px + 2rem);
     margin-right: auto;
     max-width: 1240px;
     padding: 1.2rem 2rem 4rem;
 }
-.with-side .topbar { margin-left: 340px; }
+.with-side .topbar { margin-left: calc(340px + 2rem); }
 
 .greffe-side {
     position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
+    top: 1rem;
+    left: 1rem;
+    bottom: 1rem;
     width: 340px;
-    background: transparent;
-    border-right: none;
+    background: #fff;
+    border: 0;
+    border-radius: 32px;
+    corner-shape: squircle;
+    -webkit-corner-shape: squircle;
+    box-shadow: none;
     overflow-y: auto;
     padding: 1rem 1rem 2rem;
     z-index: 6;
@@ -303,20 +307,19 @@ small.muted { font-weight: normal; }
     display: flex;
     align-items: center;
     gap: .85rem;
-    padding: .85rem 1rem;
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
+    padding: 2rem;
+    border: 0;
+    border-radius: 24px;
     corner-shape: squircle;
     -webkit-corner-shape: squircle;
     background: var(--card);
     color: var(--fg);
     text-decoration: none;
-    transition: border-color .12s, transform .12s, box-shadow .12s;
+    transition: transform .12s, box-shadow .12s;
     box-shadow: var(--shadow-xs);
     scroll-margin-top: 70px;
 }
 .dashboard-card:hover {
-    border-color: #cbd5e1;
     text-decoration: none;
     transform: translateY(-1px);
     box-shadow: var(--shadow-sm);
@@ -796,8 +799,8 @@ button, .btn {
     align-items: center;
     justify-content: center;
     gap: .5rem;
-    height: 40px;
-    padding: 0 1.25rem;
+    height: 52px;
+    padding: 1rem 1.25rem;
     border-radius: 80px;
     /* Corner-shape squircle — experimental, fallback gracieux sur les autres navigateurs. */
     corner-shape: squircle;
