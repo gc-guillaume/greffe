@@ -62,6 +62,8 @@ if ($page === 'logout') {
 
 // Mot de passe oublié (route publique).
 if ($page === 'forgot') {
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('X-LiteSpeed-Cache-Control: no-cache');
     $sent = false;
     $error = '';
     if ($method === 'POST') {
@@ -103,7 +105,24 @@ if ($page === 'forgot') {
 
 // Réinitialisation via token (route publique).
 if ($page === 'reset') {
+    // Headers anti-cache : LiteSpeed/Hostinger cache par défaut les GET publics.
+    // Sans ça, la 1ère réponse 'Lien invalide' est servie cached pour tous les
+    // clics suivants sur la même URL -> verify n'est jamais rappelé.
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+    header('X-LiteSpeed-Cache-Control: no-cache');
     $token = (string) ($_GET['token'] ?? $_POST['token'] ?? '');
+    // Filet : si l'URL contient &amp;token=... (entité HTML non décodée par certains
+    // clients mail / proxies / copy-paste), PHP parse 'amp;token' comme clé. On répare
+    // en relisant la query string brute sans entités.
+    if ($token === '' && !empty($_GET['amp;token'])) {
+        $token = (string) $_GET['amp;token'];
+    }
+    if ($token === '' && !empty($_SERVER['QUERY_STRING'])) {
+        parse_str(str_replace('&amp;', '&', (string) $_SERVER['QUERY_STRING']), $qsRepair);
+        if (!empty($qsRepair['token'])) $token = (string) $qsRepair['token'];
+    }
     $u     = reset_token_verify($token);
     $error = '';
     $done  = false;
