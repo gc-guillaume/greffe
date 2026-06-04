@@ -197,15 +197,39 @@ function greffe_mail(string $to, string $subject, string $body): bool
     $publicUrl = function_exists('greffe_public_url') ? greffe_public_url() : '';
     $host = $publicUrl !== '' ? (string) parse_url($publicUrl, PHP_URL_HOST) : 'localhost';
     $from = 'no-reply@' . preg_replace('/[^a-z0-9.\-]/i', '', $host);
-    $headers = implode("\r\n", [
+
+    // Multipart alternative : plaintext (fallback) + HTML.
+    // L'HTML met l'URL dans href -> les clients ne coupent jamais une href à 78 chars,
+    // contrairement au plaintext où sendmail/postfix wrappent les longues lignes
+    // et cassent le token (cas Hostinger + Gmail observé : URL coupée à ~76 chars).
+    $boundary = 'g_' . bin2hex(random_bytes(8));
+    $headers  = implode("\r\n", [
         'From: Greffe <' . $from . '>',
         'Reply-To: ' . $from,
         'X-Mailer: Greffe',
         'MIME-Version: 1.0',
-        'Content-Type: text/plain; charset=UTF-8',
+        'Content-Type: multipart/alternative; boundary="' . $boundary . '"',
     ]);
+
+    // Détecte les URLs http(s) dans le body et les enrobe en <a href>. Encode le reste.
+    $htmlBody = preg_replace_callback(
+        '#https?://[^\s<>"\']+#',
+        fn($m) => '<a href="' . htmlspecialchars($m[0], ENT_QUOTES) . '">' . htmlspecialchars($m[0], ENT_QUOTES) . '</a>',
+        nl2br(htmlspecialchars($body, ENT_QUOTES))
+    );
+
+    $msg  = "--$boundary\r\n";
+    $msg .= "Content-Type: text/plain; charset=UTF-8\r\n";
+    $msg .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
+    $msg .= $body . "\r\n";
+    $msg .= "--$boundary\r\n";
+    $msg .= "Content-Type: text/html; charset=UTF-8\r\n";
+    $msg .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
+    $msg .= "<!doctype html><html><body style=\"font:14px/1.5 -apple-system,Segoe UI,sans-serif\">$htmlBody</body></html>\r\n";
+    $msg .= "--$boundary--\r\n";
+
     $subjectEncoded = '=?UTF-8?B?' . base64_encode($subject) . '?=';
-    $sent = @mail($to, $subjectEncoded, $body, $headers);
+    $sent = @mail($to, $subjectEncoded, $msg, $headers);
 
     // Log pour debug, MAIS on redacte les tokens de reset pour éviter qu'une
     // lecture du log (mauvaise config NGINX, mauvais .htaccess, etc.) ne donne
