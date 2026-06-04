@@ -153,14 +153,17 @@ function greffe_mail(string $to, string $subject, string $body): bool
     $subjectEncoded = '=?UTF-8?B?' . base64_encode($subject) . '?=';
     $sent = @mail($to, $subjectEncoded, $body, $headers);
 
-    // Toujours logger pour debug (utile en local).
+    // Log pour debug, MAIS on redacte les tokens de reset pour éviter qu'une
+    // lecture du log (mauvaise config NGINX, mauvais .htaccess, etc.) ne donne
+    // un take-over de compte.
+    $bodyForLog = preg_replace('/(token=)[0-9a-f]+/i', '$1[REDACTED]', $body);
     $log = sprintf(
         "[%s] to=%s sent=%s\nSubject: %s\n\n%s\n\n----\n",
         date('Y-m-d H:i:s'),
         $to,
         $sent ? 'OK' : 'FAIL',
         $subject,
-        $body
+        $bodyForLog
     );
     @file_put_contents(GREFFE_DATA_DIR . '/mail.log', $log, FILE_APPEND);
     return (bool) $sent;

@@ -43,9 +43,12 @@ function record_value_from_input(array $field, array $post, array $files, array 
     $opts = is_array($field['options'] ?? null) ? $field['options'] : json_decode_array($field['options'] ?? null);
 
     switch ($type) {
+        case 'wysiwyg':
+            // Sanitization stricte côté serveur — empêche un modérateur de planter
+            // un XSS qui se déclenche quand un admin ouvre le record.
+            return isset($post[$key]) ? greffe_sanitize_html((string) $post[$key]) : '';
         case 'text':
         case 'longtext':
-        case 'wysiwyg':
         case 'date':
             return isset($post[$key]) ? (string) $post[$key] : '';
         case 'number':

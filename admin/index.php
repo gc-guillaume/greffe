@@ -80,9 +80,19 @@ if ($page === 'forgot') {
                        . $link . "\n\n"
                        . "Le lien expire dans 1 heure. Si tu n'es pas à l'origine de la demande, ignore ce mail.\n";
                 greffe_mail($email, 'Réinitialisation de mot de passe', $body);
+            } else {
+                // Diagnostic log : aide à comprendre pourquoi aucun mail n'arrive.
+                @file_put_contents(
+                    GREFFE_DATA_DIR . '/mail.log',
+                    sprintf(
+                        "[%s] /forgot pour %s — public_url VIDE dans _meta, AUCUN mail envoyé.\n"
+                        . "  → Connecte-toi une fois en tant qu'admin (capture auto via require_auth).\n----\n",
+                        date('Y-m-d H:i:s'),
+                        $email
+                    ),
+                    FILE_APPEND
+                );
             }
-            // Si public_url pas encore stockée : on ne fait rien (silencieusement).
-            // Un admin doit se logger une fois pour amorcer.
         }
         // Toujours afficher "envoyé" pour éviter l'énumération d'emails.
         $sent = true;

@@ -288,6 +288,111 @@ function json_decode_array(?string $s): array
 }
 
 /**
+ * Sanitization HTML pour les champs WYSIWYG.
+ * Whitelist stricte de tags + attributs + schemes d'URL.
+ * Strip tout ce qui peut exécuter du JS (script, on*, javascript:, srcdoc, iframe…).
+ *
+ * Appliqué CÔTÉ SERVEUR à l'écriture pour qu'un modérateur ne puisse pas planter
+ * un XSS qui se déclenche quand un admin ouvre le record.
+ */
+function greffe_sanitize_html(string $html): string
+{
+    $html = trim($html);
+    if ($html === '') return '';
+
+    $allowedTags = [
+        'p', 'br', 'strong', 'b', 'em', 'i', 'u',
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'a', 'ul', 'ol', 'li', 'blockquote', 'img',
+        'pre', 'code', 'span', 'div',
+    ];
+    $allowedAttrs = [
+        'a'    => ['href', 'title'],
+        'img'  => ['src', 'alt', 'title'],
+        'span' => ['title'],
+        'div'  => ['title'],
+    ];
+
+    $doc = new DOMDocument();
+    $prev = libxml_use_internal_errors(true);
+    // Wrap pour forcer UTF-8 + une racine connue.
+    $wrapped = '<?xml encoding="utf-8" ?><div id="__greffe_root__">' . $html . '</div>';
+    $doc->loadHTML($wrapped, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD | LIBXML_NONET);
+    libxml_clear_errors();
+    libxml_use_internal_errors($prev);
+
+    $xpath = new DOMXPath($doc);
+
+    // Itère en post-ordre pour pouvoir supprimer en remontant.
+    $nodes = iterator_to_array($xpath->query('//*'));
+    foreach ($nodes as $node) {
+        if (!($node instanceof DOMElement)) continue;
+        $tag = strtolower($node->nodeName);
+
+        if ($tag === 'div' && $node->getAttribute('id') === '__greffe_root__') {
+            continue; // notre wrapper
+        }
+
+        if (!in_array($tag, $allowedTags, true)) {
+            // Tag interdit : on retire l'élément mais on garde ses enfants (texte).
+            $parent = $node->parentNode;
+            if ($parent) {
+                while ($node->firstChild) {
+                    $parent->insertBefore($node->firstChild, $node);
+                }
+                $parent->removeChild($node);
+            }
+            continue;
+        }
+
+        // Strip tous les attributs sauf la whitelist.
+        $allow = $allowedAttrs[$tag] ?? [];
+        $toRemove = [];
+        foreach ($node->attributes as $attr) {
+            if (!in_array(strtolower($attr->name), $allow, true)) {
+                $toRemove[] = $attr->name;
+            }
+        }
+        foreach ($toRemove as $name) {
+            $node->removeAttribute($name);
+        }
+
+        // Schemes d'URL : http(s)://, mailto:, tel:, /relative, #anchor, et chemins relatifs admin/uploads.
+        foreach (['href', 'src'] as $urlAttr) {
+            if ($node->hasAttribute($urlAttr)) {
+                $val = trim($node->getAttribute($urlAttr));
+                if (!greffe_safe_url($val)) {
+                    $node->removeAttribute($urlAttr);
+                }
+            }
+        }
+    }
+
+    // Récupère le HTML interne du wrapper.
+    $root = $doc->getElementById('__greffe_root__');
+    if (!$root) return '';
+    $out = '';
+    foreach ($root->childNodes as $child) {
+        $out .= $doc->saveHTML($child);
+    }
+    return $out;
+}
+
+function greffe_safe_url(string $url): bool
+{
+    if ($url === '') return false;
+    // Refuse explicitement les schemes dangereux.
+    if (preg_match('/^\s*(javascript|data|vbscript|file):/i', $url)) return false;
+    // Relative / anchor / mailto / tel / http(s) : OK.
+    if ($url[0] === '/' || $url[0] === '#' || $url[0] === '?') return true;
+    if (preg_match('#^(https?|mailto|tel)://?#i', $url)) return true;
+    if (preg_match('#^(mailto|tel):#i', $url)) return true;
+    // Chemins relatifs simples (sans scheme, sans : avant /).
+    if (!str_contains(substr($url, 0, 20), ':')) return true;
+    return false;
+}
+
+/**
  * Scanne récursivement le dossier des uploads et renvoie la liste des fichiers
  * avec leurs métadonnées (type, taille, mtime, chemin relatif à admin/).
  *

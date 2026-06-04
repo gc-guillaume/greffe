@@ -62,14 +62,28 @@ function login_throttle_reset(string $username, string $ip): void
 
 /**
  * Tente de logger un utilisateur. Régénère l'id de session si OK.
+ * Constant-time : password_verify est TOUJOURS appelé (contre un hash dummy
+ * si l'utilisateur n'existe pas) pour éviter un oracle de timing qui révélerait
+ * les usernames existants.
  */
 function auth_attempt(string $username, string $password): bool
 {
     session_boot();
+    static $dummyHash = null;
+    if ($dummyHash === null) {
+        // Hash bcrypt valide — généré une fois par process, même cost que PASSWORD_DEFAULT.
+        $dummyHash = password_hash('greffe_dummy_constant_time_placeholder', PASSWORD_DEFAULT);
+    }
+
     $stmt = db()->prepare('SELECT id, username, pass_hash, role FROM users WHERE username = :u LIMIT 1');
     $stmt->execute([':u' => $username]);
     $u = $stmt->fetch();
-    if (!$u || !password_verify($password, (string) $u['pass_hash'])) {
+
+    // Toujours appeler password_verify, même si user inexistant, pour égaliser le temps.
+    $hashToCheck = $u ? (string) $u['pass_hash'] : $dummyHash;
+    $passwordOk  = password_verify($password, $hashToCheck);
+
+    if (!$u || !$passwordOk) {
         return false;
     }
     session_regenerate_id(true);
@@ -108,11 +122,17 @@ function auth_logout(): void
 
 /**
  * Garde-fou : redirige vers le login si pas authentifié.
+ * Capture aussi public_url à chaque requête admin authentifiée (rétro-compat
+ * pour les installs antérieurs à la feature public_url).
  */
 function require_auth(): void
 {
-    if (!auth_user()) {
+    $u = auth_user();
+    if (!$u) {
         redirect('index.php?p=login');
+    }
+    if ((string) $u['role'] === 'admin' && function_exists('greffe_public_url_capture')) {
+        greffe_public_url_capture();
     }
 }
 
@@ -159,14 +179,15 @@ function can_create_user_with_role(string $role): bool
     return $role === 'moderator';
 }
 
-/** Modifier un autre utilisateur : admin pour tout le monde, modérateur uniquement pour les modérateurs. */
+/** Modifier un autre utilisateur : self OU admin uniquement.
+ *  Un modérateur NE peut PAS éditer un autre modérateur — sinon un mod compromis
+ *  prend tous les autres mods (et de là, via XSS sur un wysiwyg, l'admin). */
 function can_edit_user(array $target): bool
 {
     $u = auth_user();
     if (!$u) return false;
     if ((int) $u['id'] === (int) $target['id']) return true; // self
-    if (user_is_admin()) return true;
-    return (string) $target['role'] === 'moderator';
+    return user_is_admin();
 }
 
 /** Supprimer un utilisateur : admin only, et pas soi-même. */

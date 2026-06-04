@@ -27,3 +27,6 @@ Thumbs.db
 # PHP build / temp
 *.cache
 .phpunit.result.cache
+
+# seed.php est délibérément exclu — anonyme sans auth/CSRF
+admin/seed.php
