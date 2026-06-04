@@ -110,6 +110,33 @@ function reset_token_create(int $userId): string
     $expires = (string) (time() + 5 * 3600);
     $stmt = db()->prepare('UPDATE users SET reset_token = :t, reset_expires = :e WHERE id = :id');
     $stmt->execute([':t' => $token, ':e' => $expires, ':id' => $userId]);
+    $rowCount = $stmt->rowCount();
+
+    // Diagnostic : vérifie post-write que la ligne est bien là. Fingerprint = 6 premiers/4 derniers.
+    // Si created != relu, on a un souci de WAL / chemin DB / connexion qui apparaît immédiatement.
+    if (defined('GREFFE_DATA_DIR')) {
+        $r = db()->prepare('SELECT id, reset_token, reset_expires FROM users WHERE id = :id');
+        $r->execute([':id' => $userId]);
+        $row = $r->fetch();
+        $storedTok = (string) ($row['reset_token'] ?? '');
+        $match = ($storedTok === $token) ? 'OK' : 'MISMATCH';
+        $short = substr($token, 0, 6) . '…' . substr($token, -4);
+        $storedShort = $storedTok === '' ? '(empty)' : substr($storedTok, 0, 6) . '…' . substr($storedTok, -4);
+        @file_put_contents(
+            GREFFE_DATA_DIR . '/mail.log',
+            sprintf(
+                "[%s] reset_token_create uid=%d rows=%d issued=%s stored=%s readback=%s db=%s\n",
+                date('Y-m-d H:i:s'),
+                $userId,
+                $rowCount,
+                $short,
+                $storedShort,
+                $match,
+                GREFFE_DB_PATH
+            ),
+            FILE_APPEND
+        );
+    }
     return $token;
 }
 
