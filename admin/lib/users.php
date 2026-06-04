@@ -105,7 +105,10 @@ function user_admin_count(): int
 function reset_token_create(int $userId): string
 {
     $token = bin2hex(random_bytes(16));
-    $expires = date('Y-m-d H:i:s', time() + 3600); // 1h
+    // gmdate (UTC) pour matcher SQLite datetime('now') qui est aussi UTC.
+    // Avec date() (timezone local), un décalage UTC+2 faisait apparaître le token
+    // comme expiré immédiatement à la lecture.
+    $expires = gmdate('Y-m-d H:i:s', time() + 3600);
     $stmt = db()->prepare('UPDATE users SET reset_token = :t, reset_expires = :e WHERE id = :id');
     $stmt->execute([':t' => $token, ':e' => $expires, ':id' => $userId]);
     return $token;
