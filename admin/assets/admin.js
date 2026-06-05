@@ -592,6 +592,7 @@
                 fieldsWrap.appendChild(frag);
                 var newRow = fieldsWrap.lastElementChild;
                 animateEnter(newRow);
+                initFancySelects(newRow);
                 var keyInput = newRow.querySelector('input');
                 if (keyInput) keyInput.focus({ preventScroll: true });
             }
