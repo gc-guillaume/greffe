@@ -29,8 +29,16 @@ function collection_find_by_slug(string $slug): ?array
     return $r ?: null;
 }
 
-function collection_create(string $label, string $slug, bool $singleton): int
+/**
+ * Crée une collection.
+ *
+ * @param string|bool $kindOrSingleton  Soit 'options'|'pages'|'list', soit un bool legacy
+ *                                       (true = options, false = list) pour la rétro-compat
+ *                                       des seeds existants.
+ */
+function collection_create(string $label, string $slug, string|bool $kindOrSingleton = 'list'): int
 {
+    $kind = collection_normalize_kind($kindOrSingleton);
     $slug = $slug !== '' ? slugify($slug) : slugify($label);
     if ($slug === '') {
         throw new RuntimeException('Slug invalide.');
@@ -39,22 +47,42 @@ function collection_create(string $label, string $slug, bool $singleton): int
         throw new RuntimeException('Ce slug existe déjà.');
     }
     $stmt = db()->prepare(
-        'INSERT INTO collections (slug, label, is_singleton, sort) VALUES (:s, :l, :sg, :so)'
+        'INSERT INTO collections (slug, label, is_singleton, kind, sort) VALUES (:s, :l, :sg, :k, :so)'
     );
     $sort = (int) (db()->query('SELECT COALESCE(MAX(sort),0)+1 AS n FROM collections')->fetch()['n'] ?? 1);
     $stmt->execute([
         ':s'  => $slug,
         ':l'  => $label,
-        ':sg' => $singleton ? 1 : 0,
+        ':sg' => $kind === 'options' ? 1 : 0,
+        ':k'  => $kind,
         ':so' => $sort,
     ]);
     return (int) db()->lastInsertId();
 }
 
-function collection_update(int $id, string $label, bool $singleton): void
+function collection_update(int $id, string $label, string|bool $kindOrSingleton): void
 {
-    $stmt = db()->prepare('UPDATE collections SET label = :l, is_singleton = :sg WHERE id = :id');
-    $stmt->execute([':l' => $label, ':sg' => $singleton ? 1 : 0, ':id' => $id]);
+    $kind = collection_normalize_kind($kindOrSingleton);
+    $stmt = db()->prepare('UPDATE collections SET label = :l, is_singleton = :sg, kind = :k WHERE id = :id');
+    $stmt->execute([
+        ':l'  => $label,
+        ':sg' => $kind === 'options' ? 1 : 0,
+        ':k'  => $kind,
+        ':id' => $id,
+    ]);
+}
+
+/**
+ * Normalise les divers formats de kind acceptés en entrée.
+ *  - 'options' | 'pages' | 'list'  → renvoyé tel quel
+ *  - true   → 'options' (rétro-compat seeds qui passaient un bool $singleton)
+ *  - false  → 'list'
+ *  - autre  → 'list' (défaut sûr)
+ */
+function collection_normalize_kind(string|bool $v): string
+{
+    if (is_bool($v)) return $v ? 'options' : 'list';
+    return in_array($v, ['options', 'pages', 'list'], true) ? $v : 'list';
 }
 
 function collection_delete(int $id): void
@@ -95,7 +123,7 @@ function field_create(int $collectionId, string $key, string $label, string $typ
     if ($key === '') {
         throw new RuntimeException('Clé de champ invalide.');
     }
-    $allowed = ['text', 'longtext', 'wysiwyg', 'number', 'boolean', 'date', 'color', 'media', 'gallery', 'file', 'select', 'relation', 'group', 'repeater'];
+    $allowed = ['text', 'longtext', 'wysiwyg', 'number', 'boolean', 'date', 'color', 'media', 'gallery', 'file', 'select', 'relation', 'group', 'repeater', 'blocks'];
     if (!in_array($type, $allowed, true)) {
         throw new RuntimeException('Type de champ inconnu : ' . $type);
     }
@@ -119,7 +147,7 @@ function field_create(int $collectionId, string $key, string $label, string $typ
 
 function field_update(int $id, string $label, string $type, array $options): void
 {
-    $allowed = ['text', 'longtext', 'wysiwyg', 'number', 'boolean', 'date', 'color', 'media', 'gallery', 'file', 'select', 'relation', 'group', 'repeater'];
+    $allowed = ['text', 'longtext', 'wysiwyg', 'number', 'boolean', 'date', 'color', 'media', 'gallery', 'file', 'select', 'relation', 'group', 'repeater', 'blocks'];
     if (!in_array($type, $allowed, true)) {
         throw new RuntimeException('Type de champ inconnu : ' . $type);
     }

@@ -151,17 +151,22 @@ try {
 
         case 'dashboard':
             $all = collections_all();
-            $singletons = array_values(array_filter($all, fn($c) => (int) $c['is_singleton'] === 1));
-            $lists      = array_values(array_filter($all, fn($c) => (int) $c['is_singleton'] === 0));
-            // Compte les records par collection non-singleton.
+            $kindOf = fn(array $c) => ((string) ($c['kind'] ?? '')) !== ''
+                ? (string) $c['kind']
+                : (!empty($c['is_singleton']) ? 'options' : 'list');
+            $singletons = array_values(array_filter($all, fn($c) => $kindOf($c) === 'options'));
+            $pages      = array_values(array_filter($all, fn($c) => $kindOf($c) === 'pages'));
+            $lists      = array_values(array_filter($all, fn($c) => $kindOf($c) === 'list'));
+            // Compte les records par collection non-singleton (pages + lists).
             $counts = [];
-            foreach ($lists as $col) {
+            foreach (array_merge($pages, $lists) as $col) {
                 $stmt = db()->prepare('SELECT COUNT(*) AS n FROM records WHERE collection = :c');
                 $stmt->execute([':c' => $col['slug']]);
                 $counts[$col['slug']] = (int) ($stmt->fetch()['n'] ?? 0);
             }
             view('dashboard', [
                 'singletons'      => $singletons,
+                'pages'           => $pages,
                 'lists'           => $lists,
                 'counts'          => $counts,
                 'allCollections'  => $all,
@@ -326,10 +331,15 @@ try {
             if ($method === 'POST') {
                 csrf_check();
                 try {
+                    // Rétro-compat : si POST envoie encore is_singleton (vieux form), on dérive.
+                    $kind = (string) ($_POST['kind'] ?? '');
+                    if ($kind === '') {
+                        $kind = !empty($_POST['is_singleton']) ? 'options' : 'list';
+                    }
                     $id = collection_create(
                         (string) ($_POST['label'] ?? ''),
                         (string) ($_POST['slug']  ?? ''),
-                        !empty($_POST['is_singleton'])
+                        $kind
                     );
                     flash_set('success', 'Collection créée.');
                     redirect('index.php?p=collection_edit&id=' . $id);
@@ -356,7 +366,11 @@ try {
 
                 try {
                     if ($action === 'update_collection') {
-                        collection_update($id, (string) ($_POST['label'] ?? $col['label']), !empty($_POST['is_singleton']));
+                        $kind = (string) ($_POST['kind'] ?? '');
+                        if ($kind === '') {
+                            $kind = !empty($_POST['is_singleton']) ? 'options' : 'list';
+                        }
+                        collection_update($id, (string) ($_POST['label'] ?? $col['label']), $kind);
                         flash_set('success', 'Collection mise à jour.');
                     } elseif ($action === 'add_field') {
                         $type = (string) ($_POST['type'] ?? 'text');
@@ -593,7 +607,84 @@ function build_field_options(string $type, array $post): array
         // Repli sur l'ancien format texte si quelqu'un l'utilise via API.
         return ['subfields' => subfields_parse((string) $rows)];
     }
+    if ($type === 'blocks') {
+        // Schéma défini via un textarea YAML-ish (simple à éditer, pas de hiérarchie d'UI à dessiner).
+        // Lignes commençant en colonne 0 : 'cle | Label' = nouveau type de bloc.
+        // Lignes indentées : sous-champs au format 'cle|Label|type' (cf subfields_parse).
+        $raw = (string) ($post['options_block_types_text'] ?? '');
+        return ['block_types' => block_types_parse_text($raw)];
+    }
     return [];
+}
+
+/**
+ * Parse un textarea YAML-ish en structure block_types.
+ *
+ * Format :
+ *   hero | Hero
+ *     titre|Titre|text
+ *     sous_titre|Sous-titre|longtext
+ *   gallery | Galerie
+ *     caption|Légende|text
+ *
+ * Lignes vides et commentaires '#' ignorés. L'indentation peut être spaces ou tabs.
+ */
+function block_types_parse_text(string $raw): array
+{
+    $out = [];
+    $current = null;
+    $bufferedSubLines = [];
+    $flush = function () use (&$out, &$current, &$bufferedSubLines): void {
+        if ($current === null) return;
+        $current['subfields'] = $bufferedSubLines === [] ? [] : subfields_parse(implode("\n", $bufferedSubLines));
+        $out[] = $current;
+        $current = null;
+        $bufferedSubLines = [];
+    };
+    $lines = preg_split('/\r\n|\r|\n/', $raw) ?: [];
+    foreach ($lines as $line) {
+        if (trim($line) === '' || str_starts_with(ltrim($line), '#')) continue;
+        $indented = ($line[0] === ' ' || $line[0] === "\t");
+        $trimmed = trim($line);
+        if (!$indented) {
+            $flush();
+            // Format: 'cle | Label' (séparateur '|'). Label optionnel.
+            $parts = explode('|', $trimmed, 2);
+            $key = keyify(trim($parts[0]));
+            if ($key === '') continue;
+            $label = isset($parts[1]) ? trim($parts[1]) : '';
+            if ($label === '') $label = $key;
+            $current = ['key' => $key, 'label' => $label, 'subfields' => []];
+        } else {
+            if ($current === null) continue; // ligne indentée sans block courant : skip
+            $bufferedSubLines[] = $trimmed;
+        }
+    }
+    $flush();
+    return $out;
+}
+
+/**
+ * Sérialise block_types vers le format textarea (pour réafficher dans l'éditeur).
+ */
+function block_types_serialize(array $blockTypes): string
+{
+    $out = [];
+    foreach ($blockTypes as $bt) {
+        if (!is_array($bt) || empty($bt['key'])) continue;
+        $out[] = $bt['key'] . ' | ' . ($bt['label'] ?? $bt['key']);
+        $sub = is_array($bt['subfields'] ?? null) ? $bt['subfields'] : [];
+        foreach ($sub as $sf) {
+            if (!is_array($sf) || empty($sf['key'])) continue;
+            $line = '  ' . $sf['key'] . '|' . ($sf['label'] ?? $sf['key']) . '|' . ($sf['type'] ?? 'text');
+            if (($sf['type'] ?? '') === 'select' && !empty($sf['options']['choices'])) {
+                $line .= ':' . implode(',', (array) $sf['options']['choices']);
+            }
+            $out[] = $line;
+        }
+        $out[] = '';
+    }
+    return rtrim(implode("\n", $out));
 }
 
 /**

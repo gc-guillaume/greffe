@@ -161,6 +161,35 @@ function record_value_from_input(array $field, array $post, array $files, array 
                 $out[] = $rowOut;
             }
             return $out;
+        case 'blocks':
+            // Flexible content : tableau de rows, chaque row a un 'type' (clé d'un block_type
+            // défini dans options.block_types) et un 'data' (objet avec les sous-champs du type).
+            // Stockage : [{type: 'hero', data: {...}}, {type: 'gallery', data: {...}}].
+            $types = is_array($opts['block_types'] ?? null) ? $opts['block_types'] : [];
+            // Map clé -> définition (subfields) pour lookup rapide.
+            $byKey = [];
+            foreach ($types as $t) {
+                if (!is_array($t)) continue;
+                $tk = (string) ($t['key'] ?? '');
+                if ($tk === '') continue;
+                $byKey[$tk] = is_array($t['subfields'] ?? null) ? $t['subfields'] : [];
+            }
+            $raw = $post[$key] ?? [];
+            if (!is_array($raw)) return [];
+            $out = [];
+            foreach ($raw as $row) {
+                if (!is_array($row)) continue;
+                if (empty($row['__present'])) continue;
+                $bk = (string) ($row['__type'] ?? '');
+                if ($bk === '' || !isset($byKey[$bk])) continue; // type inconnu -> skip silencieux
+                $data = [];
+                $rowData = is_array($row['data'] ?? null) ? $row['data'] : [];
+                foreach ($byKey[$bk] as $sf) {
+                    $data[$sf['key']] = subfield_value_from_input($sf, $rowData);
+                }
+                $out[] = ['type' => $bk, 'data' => $data];
+            }
+            return $out;
         default:
             return isset($post[$key]) ? (string) $post[$key] : '';
     }

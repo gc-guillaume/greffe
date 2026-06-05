@@ -29,6 +29,7 @@
         initFieldFormTypeToggle(root);
         initSubfieldsBuilder(root);
         initRepeaters(root);
+        initBlocks(root);
         initSortableRecords(root);
         initSortableFields(root);
         initFancySelects(root);
@@ -396,6 +397,7 @@
             'relation': form.querySelector('[data-field-options-relation]'),
             'group':    form.querySelector('[data-field-options-subfields]'),
             'repeater': form.querySelector('[data-field-options-subfields]'),
+            'blocks':   form.querySelector('[data-field-options-blocks]'),
         };
         form.querySelectorAll('.field-options-block').forEach(function (b) { b.hidden = true; });
         if (map[t]) map[t].hidden = false;
@@ -456,6 +458,43 @@
         function sync() { inp.hidden = (sel.value !== 'select'); }
         sel.addEventListener('change', sync);
         sync();
+    }
+
+    /* ========== Blocks (flexible content) ========== */
+    function initBlocks(root) {
+        root.querySelectorAll('[data-blocks]:not([data-init])').forEach(function (blocks) {
+            blocks.setAttribute('data-init', '1');
+            var rows = blocks.querySelector('.blocks-rows');
+            if (!rows) return;
+            var counter = rows.querySelectorAll('[data-row]').length;
+            if (counter < 1000) counter = Math.max(counter, 1000);
+
+            blocks.addEventListener('click', function (e) {
+                var t = e.target;
+                if (!t || !t.matches) return;
+                if (t.matches('[data-block-add]')) {
+                    var btKey = t.getAttribute('data-block-add');
+                    var tpl   = blocks.querySelector('template[data-block-template="' + btKey + '"]');
+                    if (!tpl) return;
+                    var frag  = tpl.content.cloneNode(true);
+                    replaceIndex(frag, counter++);
+                    rows.appendChild(frag);
+                    var newRow = rows.lastElementChild;
+                    animateEnter(newRow);
+                    initFancySelects(newRow);
+                }
+                if (t.matches('[data-row-remove]')) {
+                    var row = t.closest('[data-row]');
+                    if (row && window.confirm('Supprimer ce bloc ?')) animateLeave(row);
+                }
+            });
+
+            if (window.Sortable) {
+                window.Sortable.create(rows, {
+                    animation: 150, handle: '.drag-handle', ghostClass: 'sortable-ghost',
+                });
+            }
+        });
     }
 
     /* ========== Repeater rows ========== */

@@ -229,6 +229,12 @@ small.muted { font-weight: normal; }
 .greffe-side .side-list a.active .i { color: var(--accent); }
 .greffe-side .side-list a.active:hover { background: var(--accent-soft); }
 
+/* Page sous une collection kind=pages : indentation pour signifier la hiérarchie. */
+.greffe-side .side-list .side-sub a {
+    padding-left: 2.3rem;
+    font-size: .92rem;
+}
+
 /* Toggle hamburger : caché en desktop, visible en mobile */
 .side-toggle {
     display: none;
@@ -1143,6 +1149,18 @@ body.is-auth { background: var(--accent); }
 /* Add-field card */
 .add-field { background: #fcfcfd; }
 
+/* Kind picker (3 radios pour options/pages/list dans collection_edit) */
+.kind-picker {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: .8rem 1rem;
+    margin: .8rem 0;
+}
+.kind-picker legend { padding: 0 .35rem; font-size: .85rem; color: var(--muted); font-weight: 600; }
+.kind-picker .radio { display: flex; align-items: baseline; gap: .5rem; padding: .35rem 0; cursor: pointer; }
+.kind-picker .radio input { margin: 0; }
+.kind-picker .radio strong { color: var(--fg); }
+
 /* Switch (boolean) */
 .switch { display: inline-block; vertical-align: middle; }
 .switch-input,
@@ -1182,8 +1200,8 @@ body.is-auth { background: var(--accent); }
     outline-offset: 2px;
 }
 
-/* Group + Repeater */
-.group, .repeater {
+/* Group + Repeater + Blocks */
+.group, .repeater, .blocks {
     border: 1px solid var(--line);
     border-radius: var(--radius);
     background: #fafafa;
@@ -1214,6 +1232,49 @@ body.is-auth { background: var(--accent); }
 .repeater-row-body { grid-area: body; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: .6rem; }
 .repeater-row > [data-row-remove] { grid-area: actions; justify-self: end; }
 .repeater-row legend { display: none; }
+
+/* Blocks (flexible content) — UX similaire repeater, header avec type label + bouton suppr. */
+.blocks-rows {
+    display: flex;
+    flex-direction: column;
+    gap: .8rem;
+    margin-bottom: .8rem;
+}
+.block-row {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+}
+.block-row-head {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .6rem .8rem;
+    background: #f1f5f9;
+    border-bottom: 1px solid var(--line);
+}
+.block-row-head strong { font-weight: 600; }
+.block-row-head code { padding: .1rem .35rem; background: rgba(0,0,0,.05); border-radius: 4px; }
+.block-row-head .drag-handle { font-size: 1.1rem; cursor: grab; }
+.block-row-head > [data-row-remove] { margin-left: auto; }
+.block-row-body {
+    padding: .8rem 1rem 1rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: .6rem;
+}
+.block-row legend { display: none; }
+.blocks-add {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    padding-top: .4rem;
+}
+.blocks-add .btn { padding: .35rem .7rem; font-size: .85rem; }
 
 .sub-field { display: flex; flex-direction: column; font-size: .85rem; }
 .sub-field-label { color: var(--muted); margin-bottom: .15rem; font-weight: 600; }

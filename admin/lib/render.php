@@ -65,7 +65,7 @@ function greffe_render_field(array $f, mixed $val, array $opts, array $ctx = [])
     $fieldId  = 'f_' . $idPrefix . $key;
     // group / repeater n'ont pas d'input cible : on rend un span pour éviter
     // le warning "label for doesn't match any element id".
-    $isContainer = ($f['type'] === 'group' || $f['type'] === 'repeater');
+    $isContainer = in_array($f['type'], ['group', 'repeater', 'blocks'], true);
     ?>
     <div class="field field-<?= e($f['type']) ?>">
         <?php if ($isContainer): ?>
@@ -283,6 +283,73 @@ function greffe_render_field(array $f, mixed $val, array $opts, array $ctx = [])
                         </fieldset>
                     </template>
                     <button type="button" class="btn" data-row-add>+ Ajouter une ligne</button>
+                </div>
+            <?php endif; ?>
+
+        <?php elseif ($f['type'] === 'blocks'):
+            $blockTypes = is_array($opts['block_types'] ?? null) ? $opts['block_types'] : [];
+            $btByKey = [];
+            foreach ($blockTypes as $bt) {
+                if (is_array($bt) && !empty($bt['key'])) $btByKey[$bt['key']] = $bt;
+            }
+            $rows = is_array($val) ? array_values($val) : [];
+        ?>
+            <?php if (!$blockTypes): ?>
+                <p class="alert">Aucun type de bloc défini. Édite le schéma du champ pour en ajouter.</p>
+            <?php else: ?>
+                <div class="blocks" data-blocks>
+                    <div class="blocks-rows" data-sortable-blocks>
+                        <?php foreach ($rows as $i => $row):
+                            $rType = is_array($row) ? (string) ($row['type'] ?? '') : '';
+                            if (!isset($btByKey[$rType])) continue; // type orphelin (schéma modifié) : skip pour ne pas perdre silencieusement
+                            $bt   = $btByKey[$rType];
+                            $sub  = is_array($bt['subfields'] ?? null) ? $bt['subfields'] : [];
+                            $rd   = is_array($row['data'] ?? null) ? $row['data'] : [];
+                        ?>
+                            <fieldset class="block-row" data-row data-block-type="<?= e($rType) ?>">
+                                <input type="hidden" name="<?= e($key) ?>[<?= (int) $i ?>][__present]" value="1">
+                                <input type="hidden" name="<?= e($key) ?>[<?= (int) $i ?>][__type]"    value="<?= e($rType) ?>">
+                                <header class="block-row-head">
+                                    <span class="drag-handle" title="Glisser pour réordonner">≡</span>
+                                    <strong><?= e($bt['label'] ?? $rType) ?></strong>
+                                    <code class="muted small"><?= e($rType) ?></code>
+                                    <button type="button" class="link danger" data-row-remove>Supprimer</button>
+                                </header>
+                                <div class="block-row-body">
+                                    <?php foreach ($sub as $sf): greffe_render_subfield($key . '[' . (int) $i . '][data]', $sf, $rd[$sf['key']] ?? null); endforeach; ?>
+                                </div>
+                            </fieldset>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php foreach ($blockTypes as $bt):
+                        if (!is_array($bt) || empty($bt['key'])) continue;
+                        $btKey = (string) $bt['key'];
+                        $sub   = is_array($bt['subfields'] ?? null) ? $bt['subfields'] : [];
+                    ?>
+                        <template data-block-template="<?= e($btKey) ?>">
+                            <fieldset class="block-row" data-row data-block-type="<?= e($btKey) ?>">
+                                <input type="hidden" name="<?= e($key) ?>[__INDEX__][__present]" value="1">
+                                <input type="hidden" name="<?= e($key) ?>[__INDEX__][__type]"    value="<?= e($btKey) ?>">
+                                <header class="block-row-head">
+                                    <span class="drag-handle" title="Glisser pour réordonner">≡</span>
+                                    <strong><?= e($bt['label'] ?? $btKey) ?></strong>
+                                    <code class="muted small"><?= e($btKey) ?></code>
+                                    <button type="button" class="link danger" data-row-remove>Supprimer</button>
+                                </header>
+                                <div class="block-row-body">
+                                    <?php foreach ($sub as $sf): greffe_render_subfield($key . '[__INDEX__][data]', $sf, null); endforeach; ?>
+                                </div>
+                            </fieldset>
+                        </template>
+                    <?php endforeach; ?>
+                    <div class="blocks-add">
+                        <span class="muted small">Ajouter un bloc :</span>
+                        <?php foreach ($blockTypes as $bt):
+                            if (!is_array($bt) || empty($bt['key'])) continue;
+                        ?>
+                            <button type="button" class="btn" data-block-add="<?= e((string) $bt['key']) ?>">+ <?= e($bt['label'] ?? $bt['key']) ?></button>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
             <?php endif; ?>
 

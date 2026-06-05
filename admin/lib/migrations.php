@@ -100,5 +100,20 @@ function migrations_list(): array
             }
         },
 
+        // 2 — Ajoute collections.kind ('options' | 'pages' | 'list') et le rétro-mappe
+        // depuis is_singleton (1 -> options, 0 -> list). is_singleton est conservé en
+        // dérivé (kind='options' <=> is_singleton=1) pour la rétro-compat des seeds existants.
+        2 => function (PDO $pdo): void {
+            $cols = $pdo->query("PRAGMA table_info(collections)")->fetchAll(PDO::FETCH_ASSOC);
+            $has = false;
+            foreach ($cols as $c) {
+                if (($c['name'] ?? '') === 'kind') { $has = true; break; }
+            }
+            if (!$has) {
+                $pdo->exec("ALTER TABLE collections ADD COLUMN kind TEXT NOT NULL DEFAULT 'list'");
+                $pdo->exec("UPDATE collections SET kind = 'options' WHERE is_singleton = 1");
+            }
+        },
+
     ];
 }

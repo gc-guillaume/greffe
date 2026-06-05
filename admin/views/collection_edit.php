@@ -3,7 +3,7 @@
 /** @var array $fields */
 /** @var array $collections */
 $isNew = $collection === null;
-$fieldTypes = ['text', 'longtext', 'wysiwyg', 'number', 'boolean', 'date', 'color', 'media', 'gallery', 'file', 'select', 'relation', 'group', 'repeater'];
+$fieldTypes = ['text', 'longtext', 'wysiwyg', 'number', 'boolean', 'date', 'color', 'media', 'gallery', 'file', 'select', 'relation', 'group', 'repeater', 'blocks'];
 $subFieldTypes = ['text', 'longtext', 'number', 'boolean', 'date', 'select'];
 
 /**
@@ -15,6 +15,8 @@ $renderOptionsBlocks = function (array $opts, array $collectionsAll, ?int $curre
     $multi  = !empty($opts['multiple']);
     $choices = $opts['choices'] ?? [];
     $subfields = is_array($opts['subfields'] ?? null) ? $opts['subfields'] : [];
+    $blockTypes = is_array($opts['block_types'] ?? null) ? $opts['block_types'] : [];
+    $blockTypesText = block_types_serialize($blockTypes);
     ?>
     <div class="field-options-block" data-field-options-select>
         <label>Choix possibles <small class="muted">(une option par ligne)</small>
@@ -37,6 +39,21 @@ $renderOptionsBlocks = function (array $opts, array $collectionsAll, ?int $curre
                 Multiple (plusieurs ids)
             </label>
         </div>
+    </div>
+
+    <div class="field-options-block" data-field-options-blocks>
+        <p class="muted small">
+            Un type de bloc par section. Chaque type liste ses sous-champs (indentés).
+            L'éditeur de record permet ensuite d'empiler N blocs de N types différents et de les réordonner.
+        </p>
+        <label>Types de blocs
+            <textarea name="options_block_types_text" rows="10" spellcheck="false" style="font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px;" placeholder="hero | Hero
+  titre|Titre|text
+  sous_titre|Sous-titre|longtext
+
+gallery | Galerie
+  caption|Légende|text"><?= e($blockTypesText) ?></textarea>
+        </label>
     </div>
 
     <div class="field-options-block" data-field-options-subfields>
@@ -97,15 +114,33 @@ $renderOptionsBlocks = function (array $opts, array $collectionsAll, ?int $curre
         <label>Slug <small class="muted">(laisser vide pour générer depuis le label)</small>
             <input type="text" name="slug" pattern="[a-z0-9\-]+">
         </label>
-        <label class="checkbox">
-            <input type="checkbox" name="is_singleton" value="1">
-            Singleton (un seul record — utile pour une page d'accueil, des réglages, un footer…)
-        </label>
+        <fieldset class="kind-picker">
+            <legend>Type de collection</legend>
+            <label class="radio">
+                <input type="radio" name="kind" value="list" checked>
+                <strong>Liste</strong> <span class="muted small">— plusieurs records homogènes (blog, portfolio, équipe…)</span>
+            </label>
+            <label class="radio">
+                <input type="radio" name="kind" value="pages">
+                <strong>Pages</strong> <span class="muted small">— une liste de pages, chacune avec son contenu (accueil, à propos, contact…)</span>
+            </label>
+            <label class="radio">
+                <input type="radio" name="kind" value="options">
+                <strong>Réglages</strong> <span class="muted small">— un seul record (header, footer, infos site, légal…)</span>
+            </label>
+        </fieldset>
         <button type="submit" class="primary">Créer</button>
     </form>
 
 <?php else: ?>
 
+    <?php
+        // Rétro-compat : si la migration n'a pas encore tourné, dérive depuis is_singleton.
+        $currentKind = (string) ($collection['kind'] ?? '');
+        if ($currentKind === '') {
+            $currentKind = !empty($collection['is_singleton']) ? 'options' : 'list';
+        }
+    ?>
     <form method="post" class="card">
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="update_collection">
@@ -117,10 +152,21 @@ $renderOptionsBlocks = function (array $opts, array $collectionsAll, ?int $curre
                 <input type="text" value="<?= e($collection['slug']) ?>" disabled>
             </label>
         </div>
-        <label class="checkbox">
-            <input type="checkbox" name="is_singleton" value="1" <?= $collection['is_singleton'] ? 'checked' : '' ?>>
-            Singleton
-        </label>
+        <fieldset class="kind-picker">
+            <legend>Type de collection</legend>
+            <label class="radio">
+                <input type="radio" name="kind" value="list" <?= $currentKind === 'list' ? 'checked' : '' ?>>
+                <strong>Liste</strong> <span class="muted small">— plusieurs records homogènes</span>
+            </label>
+            <label class="radio">
+                <input type="radio" name="kind" value="pages" <?= $currentKind === 'pages' ? 'checked' : '' ?>>
+                <strong>Pages</strong> <span class="muted small">— chaque record = une page</span>
+            </label>
+            <label class="radio">
+                <input type="radio" name="kind" value="options" <?= $currentKind === 'options' ? 'checked' : '' ?>>
+                <strong>Réglages</strong> <span class="muted small">— un seul record</span>
+            </label>
+        </fieldset>
         <button type="submit">Enregistrer la collection</button>
     </form>
 

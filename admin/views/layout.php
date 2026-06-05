@@ -33,18 +33,29 @@ if ($flash):
 </header>
 
 <?php
-$nav_all   = function_exists('collections_all') ? collections_all() : [];
-$nav_sing  = array_values(array_filter($nav_all, fn($c) => (int) $c['is_singleton'] === 1));
-$nav_lists = array_values(array_filter($nav_all, fn($c) => (int) $c['is_singleton'] === 0));
+$nav_all = function_exists('collections_all') ? collections_all() : [];
+// Rétro-compat : on retombe sur is_singleton si la colonne kind n'existe pas encore.
+$nav_kind = function (array $c): string {
+    $k = (string) ($c['kind'] ?? '');
+    if ($k !== '') return $k;
+    return !empty($c['is_singleton']) ? 'options' : 'list';
+};
+$nav_opts  = array_values(array_filter($nav_all, fn($c) => $nav_kind($c) === 'options'));
+$nav_pages = array_values(array_filter($nav_all, fn($c) => $nav_kind($c) === 'pages'));
+$nav_lists = array_values(array_filter($nav_all, fn($c) => $nav_kind($c) === 'list'));
 
 // Détecte la collection en cours de consultation (pour highlight sidebar).
-$nav_active_slug = null;
-$nav_active_p    = (string) ($_GET['p'] ?? '');
+$nav_active_slug   = null;
+$nav_active_recid  = null;
+$nav_active_p      = (string) ($_GET['p'] ?? '');
 if (isset($_GET['col'])) {
     $nav_active_slug = (string) $_GET['col'];
 } elseif ($nav_active_p === 'record_edit' && isset($_GET['id']) && function_exists('record_find')) {
     $rec = record_find((int) $_GET['id']);
-    if ($rec) $nav_active_slug = (string) $rec['collection'];
+    if ($rec) {
+        $nav_active_slug  = (string) $rec['collection'];
+        $nav_active_recid = (int) $rec['id'];
+    }
 } elseif ($nav_active_p === 'collection_edit' && isset($_GET['id']) && function_exists('collection_find')) {
     $col = collection_find((int) $_GET['id']);
     if ($col) $nav_active_slug = (string) $col['slug'];
@@ -54,10 +65,10 @@ if (isset($_GET['col'])) {
     <nav>
         <a class="side-home" href="<?= e(url('index.php?p=dashboard')) ?>"><?= icon('home') ?><span>Dashboard</span></a>
 
-        <?php if ($nav_sing): ?>
-            <div class="side-section">Options</div>
+        <?php if ($nav_opts): ?>
+            <div class="side-section">Réglages</div>
             <ul class="side-list">
-                <?php foreach ($nav_sing as $c):
+                <?php foreach ($nav_opts as $c):
                     $rec  = function_exists('record_singleton') ? record_singleton((string) $c['slug']) : null;
                     $href = $rec
                         ? url('index.php?p=record_edit&id=' . (int) $rec['id'])
@@ -69,8 +80,30 @@ if (isset($_GET['col'])) {
             </ul>
         <?php endif; ?>
 
+        <?php if ($nav_pages): ?>
+            <div class="side-section">Pages</div>
+            <ul class="side-list">
+                <?php foreach ($nav_pages as $c):
+                    // Chaque page est listée comme entrée directe (slug/label du record),
+                    // pas comme une "collection à dérouler". UX différente des listes :
+                    // on accède direct au record_edit, pas à une table.
+                    $records = function_exists('records_for') ? records_for((string) $c['slug']) : [];
+                    $colHref = url('index.php?p=records&col=' . urlencode((string) $c['slug']));
+                    $colActive = $nav_active_slug === $c['slug'] && $nav_active_recid === null ? ' class="active"' : '';
+                ?>
+                    <li><a<?= $colActive ?> href="<?= e($colHref) ?>"><?= icon('folder') ?><span><?= e($c['label']) ?></span></a></li>
+                    <?php foreach ($records as $r):
+                        $pageActive = $nav_active_recid === (int) $r['id'] ? ' class="active"' : '';
+                        $pageLabel  = $r['slug'] !== null && $r['slug'] !== '' ? (string) $r['slug'] : ('#' . (int) $r['id']);
+                    ?>
+                        <li class="side-sub"><a<?= $pageActive ?> href="<?= e(url('index.php?p=record_edit&id=' . (int) $r['id'])) ?>"><?= icon('file-text') ?><span><?= e($pageLabel) ?></span></a></li>
+                    <?php endforeach; ?>
+                <?php endforeach; ?>
+            </ul>
+        <?php endif; ?>
+
         <?php if ($nav_lists): ?>
-            <div class="side-section">Collections</div>
+            <div class="side-section">Contenu</div>
             <ul class="side-list">
                 <?php foreach ($nav_lists as $c):
                     $active = $nav_active_slug === $c['slug'] ? ' class="active"' : '';

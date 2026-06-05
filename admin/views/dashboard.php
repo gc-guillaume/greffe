@@ -2,9 +2,10 @@
 /**
  * Dashboard : grille de cartes navigables.
  *
- * @var array $singletons   collections is_singleton=1
- * @var array $lists        collections is_singleton=0
- * @var array $counts       map [slug => nombre de records]
+ * @var array $singletons   collections kind=options (singletons)
+ * @var array $pages        collections kind=pages (chaque record = une page)
+ * @var array $lists        collections kind=list (records homogènes)
+ * @var array $counts       map [slug => nombre de records] pour pages + lists
  */
 ?>
 
@@ -27,7 +28,7 @@
     <p class="dash-hello-sub">On commence par quoi, aujourd'hui ?</p>
 </section>
 
-<?php if (!$singletons && !$lists): ?>
+<?php if (!$singletons && !$pages && !$lists): ?>
     <div class="empty-card">
         <p class="muted">Aucune collection pour l'instant.</p>
         <a class="btn primary" href="<?= e(url('index.php?p=collection_new')) ?>"><?= icon('plus', 14) ?> Créer la première</a>
@@ -37,7 +38,7 @@
 <?php if ($singletons): ?>
 <section class="dash-section">
     <header class="dash-section-head">
-        <h2>Options</h2>
+        <h2>Réglages</h2>
         <span class="muted small"><?= count($singletons) ?></span>
     </header>
     <div class="dashboard-grid">
@@ -51,7 +52,28 @@
                 <span class="card-icon"><?= icon('file-text', 18) ?></span>
                 <span class="card-body">
                     <strong><?= e($col['label']) ?></strong>
-                    <span class="muted small">Option</span>
+                    <span class="muted small">Réglage</span>
+                </span>
+                <span class="card-chevron"><?= icon('chevron-right', 16) ?></span>
+            </a>
+        <?php endforeach; ?>
+    </div>
+</section>
+<?php endif; ?>
+
+<?php if ($pages): ?>
+<section class="dash-section">
+    <header class="dash-section-head">
+        <h2>Pages</h2>
+        <span class="muted small"><?= count($pages) ?></span>
+    </header>
+    <div class="dashboard-grid">
+        <?php foreach ($pages as $col): $n = (int) ($counts[$col['slug']] ?? 0); ?>
+            <a class="dashboard-card pages-card" href="<?= e(url('index.php?p=records&col=' . urlencode($col['slug']))) ?>">
+                <span class="card-icon"><?= icon('layers', 18) ?></span>
+                <span class="card-body">
+                    <strong><?= e($col['label']) ?></strong>
+                    <span class="muted small"><?= $n ?> page<?= $n > 1 ? 's' : '' ?></span>
                 </span>
                 <span class="card-chevron"><?= icon('chevron-right', 16) ?></span>
             </a>
@@ -63,7 +85,7 @@
 <?php if ($lists): ?>
 <section class="dash-section">
     <header class="dash-section-head">
-        <h2>Collections</h2>
+        <h2>Contenu</h2>
         <span class="muted small"><?= count($lists) ?></span>
     </header>
     <div class="dashboard-grid">
