@@ -2,8 +2,8 @@
 <div class="page-head">
     <div>
         <a href="<?= e(url('index.php')) ?>" class="muted small back-link"><?= icon('arrow-left', 14) ?> Dashboard</a>
-        <h1>Schéma</h1>
-        <span class="muted small">Définis les collections et leurs champs.</span>
+        <h1>Mes collections</h1>
+        <span class="muted small">Tout ce qui structure tes contenus : réglages, pages, listes.</span>
     </div>
     <a class="btn primary" href="<?= e(url('index.php?p=collection_new')) ?>"><?= icon('plus', 14) ?> Nouvelle collection</a>
 </div>

@@ -30,6 +30,7 @@
         initSubfieldsBuilder(root);
         initRepeaters(root);
         initBlocks(root);
+        initWizard(root);
         initSortableRecords(root);
         initSortableFields(root);
         initFancySelects(root);
@@ -458,6 +459,132 @@
         function sync() { inp.hidden = (sel.value !== 'select'); }
         sel.addEventListener('change', sync);
         sync();
+    }
+
+    /* ========== Wizard nouvelle collection (3 steps) ========== */
+    function initWizard(root) {
+        root.querySelectorAll('[data-wizard]:not([data-init])').forEach(function (wizard) {
+            wizard.setAttribute('data-init', '1');
+            var steps      = Array.prototype.slice.call(wizard.querySelectorAll('[data-step]'));
+            var indicators = Array.prototype.slice.call(wizard.querySelectorAll('[data-step-indicator]'));
+            var current    = 1;
+            var maxStep    = steps.length;
+
+            function show(step) {
+                current = step;
+                steps.forEach(function (s) { s.hidden = (parseInt(s.getAttribute('data-step'), 10) !== step); });
+                indicators.forEach(function (li) {
+                    var n = parseInt(li.getAttribute('data-step-indicator'), 10);
+                    li.classList.toggle('active', n === step);
+                    li.classList.toggle('done',   n <  step);
+                });
+                syncNextEnabled();
+                var firstInput = steps[step - 1].querySelector('input:not([type=hidden]):not([type=radio]), select, textarea');
+                if (firstInput) firstInput.focus({ preventScroll: true });
+            }
+
+            function isStepValid(step) {
+                if (step === 1) {
+                    return !!wizard.querySelector('input[name="kind"]:checked');
+                }
+                if (step === 2) {
+                    var label = wizard.querySelector('[data-wizard-label]');
+                    return label && label.value.trim() !== '';
+                }
+                return true;
+            }
+            function syncNextEnabled() {
+                var btn = steps[current - 1].querySelector('[data-wizard-next]');
+                if (btn) btn.disabled = !isStepValid(current);
+            }
+
+            wizard.addEventListener('click', function (e) {
+                var t = e.target.closest && e.target.closest('button, [data-kind-card]');
+                if (!t) return;
+                if (t.matches && t.matches('[data-wizard-next]')) {
+                    if (!isStepValid(current)) return;
+                    if (current < maxStep) show(current + 1);
+                    return;
+                }
+                if (t.matches && t.matches('[data-wizard-prev]')) {
+                    if (current > 1) show(current - 1);
+                    return;
+                }
+                if (t.matches && t.matches('[data-wizard-field-add]')) {
+                    addFieldRow();
+                    return;
+                }
+                if (t.matches && t.matches('[data-row-remove]')) {
+                    var row = t.closest('[data-row]');
+                    if (!row) return;
+                    var rows = wizard.querySelectorAll('.wizard-field-row');
+                    if (rows.length <= 1) {
+                        // garde au moins une ligne, on la vide
+                        row.querySelectorAll('input').forEach(function (i) { i.value = ''; });
+                        return;
+                    }
+                    row.remove();
+                }
+            });
+
+            // Sync au changement (radios / inputs) pour activer Next.
+            wizard.addEventListener('input',  syncNextEnabled);
+            wizard.addEventListener('change', function (e) {
+                // Auto-advance quand on clique une card de kind à l'étape 1.
+                if (e.target && e.target.matches && e.target.matches('input[name="kind"]') && current === 1) {
+                    syncNextEnabled();
+                }
+                syncNextEnabled();
+            });
+
+            // Slug auto depuis label (étape 2).
+            var labelInput = wizard.querySelector('[data-wizard-label]');
+            var slugInput  = wizard.querySelector('[data-wizard-slug]');
+            if (labelInput && slugInput) {
+                var userTouchedSlug = false;
+                slugInput.addEventListener('input', function () { userTouchedSlug = true; });
+                labelInput.addEventListener('input', function () {
+                    if (userTouchedSlug) return;
+                    slugInput.value = slugify(labelInput.value);
+                });
+            }
+
+            // Ajoute une row de champ.
+            var fieldsWrap = wizard.querySelector('[data-wizard-fields]');
+            var fieldTpl   = wizard.querySelector('template[data-wizard-field-template]');
+            var fieldCounter = fieldsWrap ? fieldsWrap.querySelectorAll('[data-row]').length : 0;
+            if (fieldCounter < 1000) fieldCounter = Math.max(fieldCounter, 1000);
+
+            function addFieldRow() {
+                if (!fieldsWrap || !fieldTpl) return;
+                var frag = fieldTpl.content.cloneNode(true);
+                replaceIndex(frag, fieldCounter++);
+                fieldsWrap.appendChild(frag);
+                var newRow = fieldsWrap.lastElementChild;
+                animateEnter(newRow);
+                var keyInput = newRow.querySelector('input');
+                if (keyInput) keyInput.focus({ preventScroll: true });
+            }
+
+            // Drag-drop des rows de champ.
+            if (window.Sortable && fieldsWrap) {
+                window.Sortable.create(fieldsWrap, {
+                    animation: 150, handle: '.drag-handle', ghostClass: 'sortable-ghost',
+                });
+            }
+
+            show(1);
+        });
+    }
+
+    /* Slugifie côté JS — duplique la logique PHP keyify() pour le slug auto au type. */
+    function slugify(s) {
+        return (s || '')
+            .toString()
+            .toLowerCase()
+            .normalize('NFD').replace(/[̀-ͯ]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
     }
 
     /* ========== Blocks (flexible content) ========== */

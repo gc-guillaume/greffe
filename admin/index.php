@@ -341,17 +341,29 @@ try {
                         (string) ($_POST['slug']  ?? ''),
                         $kind
                     );
+                    // Wizard envoie aussi fields[] = [{key, label, type}, ...]. On les crée en
+                    // série après la collection. Échecs silencieux par champ (clé vide ou dupliquée
+                    // = skip ce champ, on ne casse pas la création de la collection).
+                    $rawFields = $_POST['fields'] ?? [];
+                    if (is_array($rawFields)) {
+                        foreach ($rawFields as $row) {
+                            if (!is_array($row)) continue;
+                            $fkey   = trim((string) ($row['key']   ?? ''));
+                            $flabel = trim((string) ($row['label'] ?? ''));
+                            $ftype  = (string) ($row['type'] ?? 'text');
+                            if ($fkey === '' || $flabel === '') continue;
+                            try {
+                                field_create($id, $fkey, $flabel, $ftype, []);
+                            } catch (Throwable $e) { /* skip ce champ */ }
+                        }
+                    }
                     flash_set('success', 'Collection créée.');
                     redirect('index.php?p=collection_edit&id=' . $id);
                 } catch (Throwable $e) {
                     flash_set('error', $e->getMessage());
                 }
             }
-            view('collection_edit', [
-                'collection' => null,
-                'fields'     => [],
-                'collections' => collections_all(),
-            ], 'Nouvelle collection');
+            view('collection_wizard', [], 'Nouvelle collection');
             break;
 
         case 'collection_edit':

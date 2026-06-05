@@ -118,7 +118,7 @@ if (isset($_GET['col'])) {
             <li><a<?= $nav_active_p === 'media' ? ' class="active"' : '' ?> href="<?= e(url('index.php?p=media')) ?>"><?= icon('image') ?><span>Médiathèque</span></a></li>
             <li><a<?= in_array($nav_active_p, ['users','user_edit','user_new'], true) ? ' class="active"' : '' ?> href="<?= e(url('index.php?p=users')) ?>"><?= icon('layers') ?><span>Utilisateurs</span></a></li>
             <?php if (function_exists('user_is_admin') && user_is_admin()): ?>
-                <li><a<?= in_array($nav_active_p, ['collections','collection_edit'], true) ? ' class="active"' : '' ?> href="<?= e(url('index.php?p=collections')) ?>"><?= icon('settings') ?><span>Schéma</span></a></li>
+                <li><a<?= in_array($nav_active_p, ['collections','collection_edit'], true) ? ' class="active"' : '' ?> href="<?= e(url('index.php?p=collections')) ?>"><?= icon('settings') ?><span>Mes collections</span></a></li>
                 <li><a href="<?= e(url('index.php?p=collection_new')) ?>"><?= icon('plus') ?><span>Nouvelle collection</span></a></li>
                 <li><a<?= in_array($nav_active_p, ['updates','updates_settings'], true) ? ' class="active"' : '' ?> href="<?= e(url('index.php?p=updates')) ?>"><?= icon('chevron-down') ?><span>Mises à jour</span></a></li>
             <?php endif; ?>
