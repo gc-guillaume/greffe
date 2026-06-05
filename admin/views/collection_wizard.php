@@ -13,6 +13,8 @@
  * propose uniquement des types "leaf" qui marchent sans options supplémentaires.
  */
 $simpleTypes = ['text', 'longtext', 'wysiwyg', 'number', 'boolean', 'date', 'color', 'media', 'gallery', 'file'];
+/** @var string[] $existing_slugs */
+$existing_slugs = $existing_slugs ?? [];
 ?>
 <div class="page-head">
     <div>
@@ -21,7 +23,8 @@ $simpleTypes = ['text', 'longtext', 'wysiwyg', 'number', 'boolean', 'date', 'col
     </div>
 </div>
 
-<form method="post" class="wizard" data-wizard data-no-hijax>
+<form method="post" class="wizard" data-wizard data-no-hijax
+      data-existing-slugs="<?= e(json_encode(array_values($existing_slugs), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>">
     <?= csrf_field() ?>
 
     <ol class="wizard-steps" aria-label="Progression">
@@ -72,6 +75,7 @@ $simpleTypes = ['text', 'longtext', 'wysiwyg', 'number', 'boolean', 'date', 'col
         </label>
         <label>Slug
             <input type="text" name="slug" pattern="[a-z0-9\-]+" data-wizard-slug placeholder="Auto-rempli depuis le label" autocomplete="off">
+            <span class="muted small" data-wizard-slug-feedback hidden></span>
         </label>
         <div class="wizard-actions">
             <button type="button" class="btn" data-wizard-prev><?= icon('chevron-left', 14) ?> Retour</button>

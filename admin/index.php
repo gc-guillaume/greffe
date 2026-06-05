@@ -363,7 +363,9 @@ try {
                     flash_set('error', $e->getMessage());
                 }
             }
-            view('collection_wizard', [], 'Nouvelle collection');
+            view('collection_wizard', [
+                'existing_slugs' => array_map(fn($c) => (string) $c['slug'], collections_all()),
+            ], 'Nouvelle collection');
             break;
 
         case 'collection_edit':
@@ -378,12 +380,16 @@ try {
 
                 try {
                     if ($action === 'update_collection') {
-                        $kind = (string) ($_POST['kind'] ?? '');
-                        if ($kind === '') {
-                            $kind = !empty($_POST['is_singleton']) ? 'options' : 'list';
+                        // On NE prend PAS le kind du POST : un changement de kind est destructif
+                        // (list <-> options change la cardinalité, casse les records existants
+                        // et le front qui les consomme). On force toujours le kind courant de la DB.
+                        // Idem pour le slug : géré par collection_create uniquement.
+                        $kindLocked = (string) ($col['kind'] ?? '');
+                        if ($kindLocked === '') {
+                            $kindLocked = !empty($col['is_singleton']) ? 'options' : 'list';
                         }
-                        collection_update($id, (string) ($_POST['label'] ?? $col['label']), $kind);
-                        flash_set('success', 'Collection mise à jour.');
+                        collection_update($id, (string) ($_POST['label'] ?? $col['label']), $kindLocked);
+                        flash_set('success', 'Label mis à jour.');
                     } elseif ($action === 'add_field') {
                         $type = (string) ($_POST['type'] ?? 'text');
                         $opts = build_field_options($type, $_POST);

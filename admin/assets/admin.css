@@ -1200,6 +1200,15 @@ body.is-auth { background: var(--accent); }
 .wizard-field-row .drag-handle { font-size: 1rem; cursor: grab; }
 .wizard-field-row [data-row-remove] { padding: 0 .3rem; }
 
+[data-wizard-slug-feedback] { display: block; margin-top: .25rem; font-size: .8rem; }
+[data-wizard-slug-feedback].error { color: var(--danger, #b91c1c); }
+[data-wizard-slug-feedback].ok { color: #16a34a; }
+
+/* collection_edit meta : type + slug en readonly badges au lieu d'inputs trompeurs */
+.collection-meta-form { display: flex; flex-direction: column; gap: .8rem; }
+.collection-meta-readonly { display: flex; gap: 1.5rem; flex-wrap: wrap; padding: .6rem .8rem; background: #f8fafc; border-radius: 10px; }
+.collection-meta-readonly > div { display: flex; flex-direction: column; gap: .15rem; }
+
 /* Kind picker (3 radios pour options/pages/list dans collection_edit) */
 .kind-picker {
     border: 1px solid var(--line);

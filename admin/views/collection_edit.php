@@ -140,34 +140,35 @@ gallery | Galerie
         if ($currentKind === '') {
             $currentKind = !empty($collection['is_singleton']) ? 'options' : 'list';
         }
+        $kindLabels = ['options' => 'Réglages', 'pages' => 'Pages', 'list' => 'Contenu'];
     ?>
-    <form method="post" class="card">
+    <form method="post" class="card collection-meta-form">
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="update_collection">
-        <div class="grid-2">
-            <label>Label
-                <input type="text" name="label" value="<?= e($collection['label']) ?>" required>
-            </label>
-            <label>Slug
-                <input type="text" value="<?= e($collection['slug']) ?>" disabled>
-            </label>
+        <!-- kind reposté tel quel : empêche le serveur de retomber sur 'list' par défaut.
+             L'utilisateur ne peut pas le changer (impact destructif si list <-> options). -->
+        <input type="hidden" name="kind" value="<?= e($currentKind) ?>">
+
+        <div class="collection-meta-readonly">
+            <div>
+                <span class="muted small">Type</span>
+                <strong><?= e($kindLabels[$currentKind] ?? $currentKind) ?></strong>
+            </div>
+            <div>
+                <span class="muted small">Slug</span>
+                <code class="slug-code"><?= e($collection['slug']) ?></code>
+            </div>
         </div>
-        <fieldset class="kind-picker">
-            <legend>Type de collection</legend>
-            <label class="radio">
-                <input type="radio" name="kind" value="list" <?= $currentKind === 'list' ? 'checked' : '' ?>>
-                <strong>Liste</strong> <span class="muted small">— plusieurs records homogènes</span>
-            </label>
-            <label class="radio">
-                <input type="radio" name="kind" value="pages" <?= $currentKind === 'pages' ? 'checked' : '' ?>>
-                <strong>Pages</strong> <span class="muted small">— chaque record = une page</span>
-            </label>
-            <label class="radio">
-                <input type="radio" name="kind" value="options" <?= $currentKind === 'options' ? 'checked' : '' ?>>
-                <strong>Réglages</strong> <span class="muted small">— un seul record</span>
-            </label>
-        </fieldset>
-        <button type="submit">Enregistrer la collection</button>
+
+        <label>Label <small class="muted">(affichage dans l'admin et la sidebar, peut être renommé librement)</small>
+            <input type="text" name="label" value="<?= e($collection['label']) ?>" required>
+        </label>
+
+        <button type="submit">Enregistrer le label</button>
+        <p class="muted small">
+            Le <strong>slug</strong> et le <strong>type</strong> sont fixés à la création — le front en dépend.
+            Pour les changer, crée une nouvelle collection et migre tes records.
+        </p>
     </form>
 
     <h2>Champs</h2>

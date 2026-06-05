@@ -489,7 +489,10 @@
                 }
                 if (step === 2) {
                     var label = wizard.querySelector('[data-wizard-label]');
-                    return label && label.value.trim() !== '';
+                    var slug  = wizard.querySelector('[data-wizard-slug]');
+                    if (!label || label.value.trim() === '') return false;
+                    if (slug && slug.dataset.collision === '1') return false;
+                    return true;
                 }
                 return true;
             }
@@ -537,15 +540,42 @@
                 syncNextEnabled();
             });
 
-            // Slug auto depuis label (étape 2).
-            var labelInput = wizard.querySelector('[data-wizard-label]');
-            var slugInput  = wizard.querySelector('[data-wizard-slug]');
+            // Slug auto depuis label (étape 2) + validation live unicité + format.
+            var labelInput    = wizard.querySelector('[data-wizard-label]');
+            var slugInput     = wizard.querySelector('[data-wizard-slug]');
+            var slugFeedback  = wizard.querySelector('[data-wizard-slug-feedback]');
+            var existingSlugs = [];
+            try { existingSlugs = JSON.parse(wizard.getAttribute('data-existing-slugs') || '[]'); } catch (e) {}
+
+            function validateSlug() {
+                if (!slugInput) return;
+                var v = (slugInput.value || '').trim();
+                slugInput.dataset.collision = '0';
+                if (v === '') {
+                    if (slugFeedback) { slugFeedback.hidden = true; slugFeedback.classList.remove('error', 'ok'); }
+                    syncNextEnabled();
+                    return;
+                }
+                var formatOk = /^[a-z0-9\-]+$/.test(v);
+                var taken    = existingSlugs.indexOf(v) !== -1;
+                if (!formatOk) {
+                    slugInput.dataset.collision = '1';
+                    if (slugFeedback) { slugFeedback.hidden = false; slugFeedback.textContent = 'Format invalide : minuscules, chiffres et tirets uniquement.'; slugFeedback.classList.add('error'); slugFeedback.classList.remove('ok'); }
+                } else if (taken) {
+                    slugInput.dataset.collision = '1';
+                    if (slugFeedback) { slugFeedback.hidden = false; slugFeedback.textContent = 'Ce slug est déjà utilisé par une autre collection.'; slugFeedback.classList.add('error'); slugFeedback.classList.remove('ok'); }
+                } else {
+                    if (slugFeedback) { slugFeedback.hidden = false; slugFeedback.textContent = 'Disponible.'; slugFeedback.classList.add('ok'); slugFeedback.classList.remove('error'); }
+                }
+                syncNextEnabled();
+            }
+
             if (labelInput && slugInput) {
                 var userTouchedSlug = false;
-                slugInput.addEventListener('input', function () { userTouchedSlug = true; });
+                slugInput.addEventListener('input', function () { userTouchedSlug = true; validateSlug(); });
                 labelInput.addEventListener('input', function () {
-                    if (userTouchedSlug) return;
-                    slugInput.value = slugify(labelInput.value);
+                    if (!userTouchedSlug) slugInput.value = slugify(labelInput.value);
+                    validateSlug();
                 });
             }
 
